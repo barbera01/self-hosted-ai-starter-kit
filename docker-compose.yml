@@ -114,7 +114,3 @@ services:
       - "traefik.http.routers.chat.tls=true"
     environment:
       OLLAMA_BASE_URL: http://ollama-gpu:11434  # Connect to the ollama-gpu container by name
-
-volumes:
-  open-webui:
-    name: open-webui
