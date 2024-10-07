@@ -3,6 +3,7 @@ volumes:
   postgres_storage:
   ollama_storage:
   qdrant_storage:
+  open-webui:
 
 networks:
   demo:
@@ -93,3 +94,27 @@ services:
       - 6333:6333
     volumes:
       - qdrant_storage:/qdrant/storage
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    networks: ['demo']
+    restart: always
+    depends_on:
+      - ollama-gpu  # Ensure ollama-gpu starts first
+    ports:
+      - "3000:8080"  # Expose port 8080 in the container to port 3000 on the host
+    volumes:
+      - open-webui:/app/backend/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.chat.rule=Host(`chat.lab.home-cloud.uk`)"
+      - "traefik.http.routers.chat.entrypoints=websecure"
+      - "traefik.http.services.chat.loadbalancer.server.port=30000"  
+      - "traefik.http.routers.chat.tls=true"
+    environment:
+      OLLAMA_BASE_URL: http://ollama-gpu:11434  # Connect to the ollama-gpu container by name
+
+volumes:
+  open-webui:
+    name: open-webui
