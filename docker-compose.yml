@@ -145,9 +145,9 @@ services:
       - open-webui:/app/backend/data
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.n8n.rule=Host(`chatgpt.lab.home-cloud.uk`)"
-      - "traefik.http.routers.n8n.entrypoints=websecure"
-      - "traefik.http.services.n8n.loadbalancer.server.port=3000"
-      - "traefik.http.routers.n8n.tls=true"
+      - "traefik.http.routers.chatgpt.rule=Host(`chatgpt.lab.home-cloud.uk`)"
+      - "traefik.http.routers.chatgpt.entrypoints=websecure"
+      - "traefik.http.services.chatgpt.loadbalancer.server.port=3000"
+      - "traefik.http.routers.chatgpt.tls=true"
     environment:
       OLLAMA_BASE_URL: http://ollama:11434  # Connect to the ollama container by name
