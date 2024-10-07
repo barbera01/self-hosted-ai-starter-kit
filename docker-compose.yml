@@ -110,7 +110,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.chat.rule=Host(`chat.lab.home-cloud.uk`)"
       - "traefik.http.routers.chat.entrypoints=websecure"
-      - "traefik.http.services.chat.loadbalancer.server.port=30000"  
+      - "traefik.http.services.chat.loadbalancer.server.port=3000"  
       - "traefik.http.routers.chat.tls=true"
     environment:
       OLLAMA_BASE_URL: http://ollama-gpu:11434  # Connect to the ollama-gpu container by name
