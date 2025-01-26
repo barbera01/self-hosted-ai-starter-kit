@@ -81,7 +81,7 @@ services:
     entrypoint: /bin/sh
     command:
       - "-c"
-      - "sleep 3; OLLAMA_HOST=ollama-gpu:11434 ollama pull llama3.1"
+      - "sleep 3; OLLAMA_HOST=ollama-gpu:11434 ollama pull llama3.2"
     depends_on:
       - ollama-gpu
 
