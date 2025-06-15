@@ -47,9 +47,9 @@ services:
       - ./shared:/data/shared
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.n8n.rule=Host(`n8n.lab.home-cloud.uk`)"
+      - "traefik.http.routers.n8n.rule=Host(`${N8N_DOMAIN}`)"
       - "traefik.http.routers.n8n.entrypoints=websecure"
-      - "traefik.http.services.n8n.loadbalancer.server.port=5678"  
+      - "traefik.http.services.n8n.loadbalancer.server.port=${N8N_PORT}"  
       - "traefik.http.routers.n8n.tls=true"
     depends_on:
       postgres:
@@ -81,7 +81,7 @@ services:
     entrypoint: /bin/sh
     command:
       - "-c"
-      - "sleep 3; OLLAMA_HOST=ollama-gpu:11434 ollama pull llama3.2"
+      - "sleep 3; OLLAMA_HOST=ollama-gpu:11434 ollama pull llama3.3"
     depends_on:
       - ollama-gpu
 
@@ -106,9 +106,9 @@ services:
       - open-webui:/app/backend/data
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.chat.rule=Host(`chat.lab.home-cloud.uk`)"
+      - "traefik.http.routers.chat.rule=Host(`${WEBUI_DOMAIN}`)"
       - "traefik.http.routers.chat.entrypoints=websecure"
-      - "traefik.http.services.chat.loadbalancer.server.port=8080"  # Use container's internal port
+      - "traefik.http.services.chat.loadbalancer.server.port=${WEBUI_PORT}"  # Use container's internal port
       - "traefik.http.routers.chat.tls=true"  # Enable HTTPS without specifying a certresolver
     environment:
       OLLAMA_BASE_URL: http://ollama-gpu:11434  # Connect to the ollama-gpu container by name
