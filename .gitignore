@@ -1,0 +1,55 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Docker volumes and data
+data/
+volumes/
+
+# n8n specific
+n8n/backup/
+shared/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# dotenv environment variable files
+
+# Yarn Integrity file
+.yarn-integrity
+
+# IDE / Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+*~
+
