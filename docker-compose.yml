@@ -1,14 +1,17 @@
+version: "3.9"
+
 volumes:
   n8n_storage:
   postgres_storage:
   ollama_storage:
   qdrant_storage:
   open-webui:
+  comfy_workspace:   # models, workflows, outputs for ComfyUI
 
 networks:
   demo:
-    name: demo        
-    external: true    
+    name: demo        # fixed name (no stack prefixing)
+    external: true
 
 services:
   postgres:
@@ -102,6 +105,36 @@ services:
     volumes:
       - qdrant_storage:/qdrant/storage
 
+  # === NEW: ComfyUI (GPU) for image generation ===
+  comfyui:
+    image: ghcr.io/ai-dock/comfyui:latest-cuda
+    container_name: comfyui
+    networks: ['demo']
+    restart: unless-stopped
+    # No host port needed; OWUI talks to it over the docker network on 8188
+    volumes:
+      - comfy_workspace:/workspace
+    environment:
+      COMFYUI_PORT: "8188"
+      # Disable ComfyUI's login; OWUI doesn't send creds by default.
+      WEB_ENABLE_AUTH: "false"
+      WORKSPACE: "/workspace"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    # If you want the ComfyUI web UI exposed via Traefik, uncomment labels:
+     labels:
+       - "traefik.enable=true"
+       - "traefik.docker.network=demo"
+       - "traefik.http.routers.comfy.rule=Host(`comfy.lab.home-cloud.uk`)"
+       - "traefik.http.routers.comfy.entrypoints=websecure"
+       - "traefik.http.routers.comfy.tls=true"
+       - "traefik.http.services.comfy.loadbalancer.server.port=8188"
+
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
     container_name: open-webui
@@ -109,8 +142,18 @@ services:
     restart: unless-stopped
     depends_on:
       - ollama-gpu
+      - comfyui
     environment:
+      # Chat LLM via Ollama
       OLLAMA_BASE_URL: "http://ollama-gpu:11434"
+      # Image generation via ComfyUI
+      IMAGE_GENERATION_ENGINE: "comfyui"         # PersistentConfig
+      ENABLE_IMAGE_GENERATION: "true"            # PersistentConfig
+      COMFYUI_BASE_URL: "http://comfyui:8188"    # PersistentConfig
+      # Optionally default steps/size/model for images:
+      # IMAGE_STEPS: "30"
+      # IMAGE_SIZE: "768x768"
+      # IMAGE_GENERATION_MODEL: ""
     volumes:
       - open-webui:/app/backend/data
     labels:
