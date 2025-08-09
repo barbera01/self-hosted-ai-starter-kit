@@ -11,8 +11,8 @@ volumes:
 
 networks:
   demo:
-    name: demo
-    external: true # create first: docker network create demo
+    name: demo           # fixed name; create once: `docker network create demo`
+    external: true
 
 services:
   postgres:
@@ -30,6 +30,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    pull_policy: always
 
   n8n:
     image: n8nio/n8n:latest
@@ -61,6 +62,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    pull_policy: always
 
   ollama-gpu:
     image: ollama/ollama:latest
@@ -83,6 +85,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
+    pull_policy: always
 
   ollama-pull-llama-gpu:
     image: ollama/ollama:latest
@@ -95,6 +98,7 @@ services:
     depends_on:
       ollama-gpu:
         condition: service_healthy
+    pull_policy: always
 
   qdrant:
     image: qdrant/qdrant
@@ -105,7 +109,9 @@ services:
       - "6333:6333"
     volumes:
       - qdrant_storage:/qdrant/storage
+    pull_policy: always
 
+  # Image generation engine (GPU): ComfyUI
   comfyui:
     image: ghcr.io/ai-dock/comfyui:latest-cuda
     container_name: comfyui
@@ -113,6 +119,9 @@ services:
     restart: unless-stopped
     volumes:
       - comfy_workspace:/workspace
+      # Optional: bind host model folders for easy management:
+      # - ./models/comfy:/workspace/models
+      # - ./output/comfy:/workspace/output
     environment:
       COMFYUI_PORT: "8188"
       WEB_ENABLE_AUTH: "false"
@@ -124,18 +133,32 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    pull_policy: always
+    # To expose ComfyUI via Traefik, add labels similar to open-webui and set Host(`comfy.lab.home-cloud.uk`)
 
+  # Image generation engine (GPU): AUTOMATIC1111
   automatic1111:
     image: ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda
     container_name: automatic1111
     networks: ['demo']
     restart: unless-stopped
     environment:
-      CLI_ARGS: "--listen --port 7860 --enable-insecure-extension-access --no-half-vae"
+      # --api is REQUIRED for Open WebUI integration
+      CLI_ARGS: "--listen --port 7860 --api --enable-insecure-extension-access --no-half-vae"
+    # Optional: publish UI for direct access; otherwise rely on internal DNS from OWUI
     ports:
-      - "7860:7860" # If you want to access UI directly
+      - "7860:7860"
     volumes:
       - a1111_data:/data
+      # Optional: bind host model folders:
+      # - ./models/a1111:/data/models
+      # - ./output/a1111:/data/outputs
+    # Simple TCP healthcheck (no curl dependency)
+    healthcheck:
+      test: ["CMD-SHELL", "bash -lc '</dev/tcp/127.0.0.1/7860' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 40
     deploy:
       resources:
         reservations:
@@ -143,6 +166,7 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    pull_policy: always
 
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
@@ -154,11 +178,16 @@ services:
       - comfyui
       - automatic1111
     environment:
+      # Chat LLM via Ollama
       OLLAMA_BASE_URL: "http://ollama-gpu:11434"
+      # Image gen config (can be changed in OWUI Admin → Settings → Images)
       ENABLE_IMAGE_GENERATION: "true"
-      IMAGE_GENERATION_ENGINE: "comfyui"  # default; can switch to automatic1111
+      IMAGE_GENERATION_ENGINE: "comfyui"                 # default at boot; you can switch to automatic1111 in UI
       COMFYUI_BASE_URL: "http://comfyui:8188"
       AUTOMATIC1111_BASE_URL: "http://automatic1111:7860"
+      # Optional defaults:
+      # IMAGE_STEPS: "30"
+      # IMAGE_SIZE: "768x768"
     volumes:
       - open-webui:/app/backend/data
     labels:
@@ -168,3 +197,4 @@ services:
       - "traefik.http.routers.chat.entrypoints=websecure"
       - "traefik.http.routers.chat.tls=true"
       - "traefik.http.services.chat.loadbalancer.server.port=8080"
+    pull_policy: always
