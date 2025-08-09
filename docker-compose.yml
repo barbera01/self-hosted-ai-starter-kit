@@ -11,7 +11,7 @@ networks:
 services:
   postgres:
     image: postgres:16-alpine
-    networks: ['aistack_demo']
+    networks: ['demo']
     restart: unless-stopped
     environment:
       - POSTGRES_USER
@@ -27,7 +27,7 @@ services:
 
   n8n:
     image: n8nio/n8n:latest
-    networks: ['aistack_demo']
+    networks: ['demo']
     container_name: n8n
     restart: unless-stopped
     environment:
@@ -58,7 +58,7 @@ services:
   ollama-gpu:
     image: ollama/ollama:latest
     container_name: ollama-gpu
-    networks: ['aistack_demo']
+    networks: ['demo']
     restart: unless-stopped
     ports:
       - "11434:11434"
@@ -80,7 +80,7 @@ services:
   ollama-pull-llama-gpu:
     image: ollama/ollama:latest
     container_name: ollama-pull-llama-gpu
-    networks: ['aistack_demo']
+    networks: ['demo']
     volumes:
       - ollama_storage:/root/.ollama
     entrypoint: /bin/sh
@@ -92,7 +92,7 @@ services:
   qdrant:
     image: qdrant/qdrant
     container_name: qdrant
-    networks: ['aistack_demo']
+    networks: ['demo']
     restart: unless-stopped
     ports:
       - "6333:6333"
