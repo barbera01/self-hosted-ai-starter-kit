@@ -6,12 +6,12 @@ volumes:
   ollama_storage:
   qdrant_storage:
   open-webui:
-  comfy_workspace:   # models, workflows, outputs for ComfyUI
+  comfy_workspace:   # ComfyUI models/workflows/outputs
 
 networks:
   demo:
-    name: demo        # fixed name (no stack prefixing)
-    external: true
+    name: demo        # fixed name so Portainer won't prefix it
+    external: true    # ensure this network exists: `docker network create demo` (once)
 
 services:
   postgres:
@@ -55,8 +55,8 @@ services:
       - "traefik.docker.network=demo"
       - "traefik.http.routers.n8n.rule=Host(`${N8N_DOMAIN:-n8n.lab.home-cloud.uk}`)"
       - "traefik.http.routers.n8n.entrypoints=websecure"
-      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
       - "traefik.http.routers.n8n.tls=true"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
     depends_on:
       postgres:
         condition: service_healthy
@@ -70,6 +70,7 @@ services:
       - "11434:11434"
     volumes:
       - ollama_storage:/root/.ollama
+    # Note: 'deploy' is ignored by docker-compose, but fine under Swarm.
     deploy:
       resources:
         reservations:
@@ -77,6 +78,7 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    # Use built-in CLI for healthcheck (no curl/wget in image)
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 10s
@@ -105,18 +107,20 @@ services:
     volumes:
       - qdrant_storage:/qdrant/storage
 
-  # === NEW: ComfyUI (GPU) for image generation ===
+  # Image generation engine (GPU): ComfyUI
   comfyui:
     image: ghcr.io/ai-dock/comfyui:latest-cuda
     container_name: comfyui
     networks: ['demo']
     restart: unless-stopped
-    # No host port needed; OWUI talks to it over the docker network on 8188
+    # Keep internal; Open WebUI calls it at http://comfyui:8188
     volumes:
       - comfy_workspace:/workspace
+      # Optional: bind specific folders if you want them on the host
+      # - ./comfy/models:/workspace/storage
+      # - ./comfy/output:/workspace/output
     environment:
       COMFYUI_PORT: "8188"
-      # Disable ComfyUI's login; OWUI doesn't send creds by default.
       WEB_ENABLE_AUTH: "false"
       WORKSPACE: "/workspace"
     deploy:
@@ -126,14 +130,14 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    # If you want the ComfyUI web UI exposed via Traefik, uncomment labels:
-     labels:
-       - "traefik.enable=true"
-       - "traefik.docker.network=demo"
-       - "traefik.http.routers.comfy.rule=Host(`comfy.lab.home-cloud.uk`)"
-       - "traefik.http.routers.comfy.entrypoints=websecure"
-       - "traefik.http.routers.comfy.tls=true"
-       - "traefik.http.services.comfy.loadbalancer.server.port=8188"
+    # If you want the ComfyUI web UI exposed via Traefik, uncomment:
+    # labels:
+    #   - "traefik.enable=true"
+    #   - "traefik.docker.network=demo"
+    #   - "traefik.http.routers.comfy.rule=Host(`comfy.lab.home-cloud.uk`)"
+    #   - "traefik.http.routers.comfy.entrypoints=websecure"
+    #   - "traefik.http.routers.comfy.tls=true"
+    #   - "traefik.http.services.comfy.loadbalancer.server.port=8188"
 
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
@@ -146,14 +150,15 @@ services:
     environment:
       # Chat LLM via Ollama
       OLLAMA_BASE_URL: "http://ollama-gpu:11434"
-      # Image generation via ComfyUI
-      IMAGE_GENERATION_ENGINE: "comfyui"         # PersistentConfig
-      ENABLE_IMAGE_GENERATION: "true"            # PersistentConfig
-      COMFYUI_BASE_URL: "http://comfyui:8188"    # PersistentConfig
-      # Optionally default steps/size/model for images:
+      # Image generation via ComfyUI (Open WebUI PersistentConfig)
+      IMAGE_GENERATION_ENGINE: "comfyui"
+      ENABLE_IMAGE_GENERATION: "true"
+      COMFYUI_BASE_URL: "http://comfyui:8188"
+      # Optional image defaults:
       # IMAGE_STEPS: "30"
       # IMAGE_SIZE: "768x768"
       # IMAGE_GENERATION_MODEL: ""
+      # If you later add AUTOMATIC1111, you'd set AUTOMATIC1111_BASE_URL too.
     volumes:
       - open-webui:/app/backend/data
     labels:
