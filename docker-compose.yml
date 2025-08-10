@@ -127,8 +127,14 @@ services:
     environment:
       WEB_ENABLE_AUTH: "false"
       WORKSPACE: "/workspace"
+      # Disable Cloudflare tunnels that are interfering
+      WEB_ENABLE_QUICKTUNNEL: "false"
+      WEB_ENABLE_LOGIN: "false"
       # Ensure ComfyUI starts with correct settings
       CLI_ARGS: "--listen 0.0.0.0 --port 8188"
+      # Force ComfyUI to start
+      SERVICE_COMFYUI: "true"
+      SERVERLESS: "false"
     deploy:
       resources:
         reservations:
@@ -141,14 +147,15 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 90s
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=demo"
-      - "traefik.http.routers.cui.rule=Host(`${COMFY_DOMAIN:-comfy.lab.home-cloud.uk}`)"
-      - "traefik.http.routers.cui.entrypoints=websecure"
-      - "traefik.http.routers.cui.tls=true"
-      - "traefik.http.services.cui.loadbalancer.server.port=8188"
+      # Fixed router name to match your domain
+      - "traefik.http.routers.comfyui.rule=Host(`${COMFY_DOMAIN:-cui.lab.home-cloud.uk}`)"
+      - "traefik.http.routers.comfyui.entrypoints=websecure"
+      - "traefik.http.routers.comfyui.tls=true"
+      - "traefik.http.services.comfyui.loadbalancer.server.port=8188"
     pull_policy: always
 
   # ---- AUTOMATIC1111 (GPU) ----
