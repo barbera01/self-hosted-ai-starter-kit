@@ -123,7 +123,8 @@ services:
       # - ./models/comfy:/workspace/models
       # - ./output/comfy:/workspace/output
     environment:
-      COMFYUI_PORT: "18188"
+      COMFYUI_PORT: "8188"                # run on 8188 inside container
+      COMFYUI_FLAGS: "--listen --port 8188"  # force 0.0.0.0 and port
       WEB_ENABLE_AUTH: "false"
       WORKSPACE: "/workspace"
     labels:
