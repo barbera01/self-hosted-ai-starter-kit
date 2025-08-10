@@ -124,19 +124,26 @@ services:
       WEB_ENABLE_QUICKTUNNEL: "false"
       WEB_ENABLE_LOGIN: "false"
       WORKSPACE: "/workspace"
-    # Simplified command - let the image handle ComfyUI startup
+    # Alternative: Use python3 instead of python
     command: >
       bash -c "
-        echo 'Starting ComfyUI...' &&
-        cd /workspace &&
-        if [ -d ComfyUI ]; then
-          cd ComfyUI &&
-          python main.py --listen 0.0.0.0 --port 8188
-        else
-          echo 'ComfyUI not found in workspace'
-          exit 1
-        fi
+        echo 'Starting ComfyUI with python3...' &&
+        cd /workspace/ComfyUI &&
+        python3 main.py --listen 0.0.0.0 --port 8188 --preview-method auto
       "
+    # Let the Docker image handle startup normally
+    # command: >
+    #   bash -c "
+    #     echo 'Starting ComfyUI...' &&
+    #     cd /workspace &&
+    #     if [ -d ComfyUI ]; then
+    #       cd ComfyUI &&
+    #       python main.py --listen 0.0.0.0 --port 8188
+    #     else
+    #       echo 'ComfyUI not found in workspace'
+    #       exit 1
+    #     fi
+    #   "
     deploy:
       resources:
         reservations:
