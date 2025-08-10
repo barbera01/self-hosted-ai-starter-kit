@@ -1,3 +1,4 @@
+version: "3.9"
 
 volumes:
   n8n_storage:
@@ -186,8 +187,7 @@ services:
     container_name: open-webui
     networks: ['demo']
     restart: unless-stopped
-    ports:
-      - "8080:8080"  # Add explicit port mapping for debugging
+    # Remove port mapping - access via Traefik only
     depends_on:
       ollama-gpu:
         condition: service_healthy
