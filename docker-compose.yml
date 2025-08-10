@@ -111,14 +111,14 @@ services:
       - qdrant_storage:/qdrant/storage
     pull_policy: always
 
-  # ---- ComfyUI (GPU) - explicit venv python + 0.0.0.0:8188 ----
+  # ---- ComfyUI (GPU) - Fixed configuration ----
   comfyui:
     image: ghcr.io/ai-dock/comfyui:latest-cuda
     container_name: comfyui
     networks: ['demo']
     restart: unless-stopped
-    working_dir: /workspace/ComfyUI
-    command: ["/opt/environments/python/comfyui/bin/python", "main.py", "--listen", "0.0.0.0", "--port", "8188"]
+    ports:
+      - "8188:8188"  # Expose port for debugging/direct access
     volumes:
       - comfy_workspace:/workspace
       # Optional: bind host model/output folders for easier management:
@@ -127,6 +127,8 @@ services:
     environment:
       WEB_ENABLE_AUTH: "false"
       WORKSPACE: "/workspace"
+      # Ensure ComfyUI starts with correct settings
+      CLI_ARGS: "--listen 0.0.0.0 --port 8188"
     deploy:
       resources:
         reservations:
@@ -134,6 +136,12 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8188/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=demo"
@@ -152,7 +160,6 @@ services:
     environment:
       # --api is required for Open WebUI
       CLI_ARGS: "--listen --port 7860 --api --enable-insecure-extension-access --no-half-vae"
-    # Optional: publish UI for direct access
     ports:
       - "7860:7860"
     volumes:
@@ -161,10 +168,11 @@ services:
       # - ./models/a1111:/data/models
       # - ./output/a1111:/data/outputs
     healthcheck:
-      test: ["CMD-SHELL", "bash -lc '</dev/tcp/127.0.0.1/7860' || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 40
+      test: ["CMD-SHELL", "curl -f http://localhost:7860/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
     deploy:
       resources:
         reservations:
@@ -179,10 +187,15 @@ services:
     container_name: open-webui
     networks: ['demo']
     restart: unless-stopped
+    ports:
+      - "8080:8080"  # Add explicit port mapping for debugging
     depends_on:
-      - ollama-gpu
-      - comfyui
-      - automatic1111
+      ollama-gpu:
+        condition: service_healthy
+      comfyui:
+        condition: service_healthy
+      automatic1111:
+        condition: service_healthy
     environment:
       # Chat LLM via Ollama
       OLLAMA_BASE_URL: "http://ollama-gpu:11434"
@@ -191,6 +204,11 @@ services:
       IMAGE_GENERATION_ENGINE: "comfyui"                 # default at boot; switch in UI if needed
       COMFYUI_BASE_URL: "http://comfyui:8188"
       AUTOMATIC1111_BASE_URL: "http://automatic1111:7860"
+      # Additional Open WebUI settings
+      WEBUI_NAME: "AI Chat & Image Generation"
+      DEFAULT_USER_ROLE: "user"
+      # Enable CORS for better API communication
+      ENABLE_COMMUNITY_SHARING: "false"
     volumes:
       - open-webui:/app/backend/data
     labels:
