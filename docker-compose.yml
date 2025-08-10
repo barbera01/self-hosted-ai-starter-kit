@@ -113,37 +113,33 @@ services:
 
   # Image generation engine (GPU): ComfyUI
   comfyui:
-    image: ghcr.io/ai-dock/comfyui:latest-cuda
-    container_name: comfyui
-    networks: ['demo']
-    restart: unless-stopped
-    volumes:
-      - comfy_workspace:/workspace
-      # Optional: bind host model folders for easy management:
-      # - ./models/comfy:/workspace/models
-      # - ./output/comfy:/workspace/output
-    environment:
-      COMFYUI_PORT: "8188"                # run on 8188 inside container
-      COMFYUI_FLAGS: "--listen --port 8188"  # force 0.0.0.0 and port
-      WEB_ENABLE_AUTH: "false"
-      WORKSPACE: "/workspace"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=demo"
-      - "traefik.http.routers.cui.rule=Host(`${N8N_DOMAIN:-cui.lab.home-cloud.uk}`)"
-      - "traefik.http.routers.cui.entrypoints=websecure"
-      - "traefik.http.routers.cui.tls=true"
-      - "traefik.http.services.cui.loadbalancer.server.port=18188"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    pull_policy: always
-    # To expose ComfyUI via Traefik, add labels similar to open-webui and set Host(`comfy.lab.home-cloud.uk`)
-
+  image: ghcr.io/ai-dock/comfyui:latest-cuda
+  container_name: comfyui
+  networks: ['demo']
+  restart: unless-stopped
+  working_dir: /workspace/ComfyUI
+  command: >
+    bash -lc "python main.py --listen 0.0.0.0 --port 8188"
+  volumes:
+    - comfy_workspace:/workspace
+  environment:
+    WEB_ENABLE_AUTH: "false"
+    WORKSPACE: "/workspace"
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
+  labels:
+    - "traefik.enable=true"
+    - "traefik.docker.network=demo"
+    - "traefik.http.routers.cui.rule=Host(`${COMFY_DOMAIN:-comfy.lab.home-cloud.uk}`)"
+    - "traefik.http.routers.cui.entrypoints=websecure"
+    - "traefik.http.routers.cui.tls=true"
+    - "traefik.http.services.cui.loadbalancer.server.port=8188"
+    
   # Image generation engine (GPU): AUTOMATIC1111
   automatic1111:
     image: ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda
