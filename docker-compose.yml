@@ -1,4 +1,3 @@
-
 volumes:
   n8n_storage:
   postgres_storage:
@@ -119,15 +118,20 @@ services:
       - comfy_workspace:/workspace
     command: >
       sh -c "
-        apk add --no-cache wget &&
+        echo 'Installing wget...' &&
+        apk update &&
+        apk add --no-cache wget curl &&
+        echo 'Creating directories...' &&
         mkdir -p /workspace/ComfyUI/models/checkpoints &&
         if [ ! -f /workspace/ComfyUI/models/checkpoints/sdxl_turbo_1.0_fp16.safetensors ]; then
           echo 'Downloading SDXL Turbo model for RTX 3060 (6.9GB)...' &&
-          wget -O /workspace/ComfyUI/models/checkpoints/sdxl_turbo_1.0_fp16.safetensors \
+          wget --progress=dot:giga -O /workspace/ComfyUI/models/checkpoints/sdxl_turbo_1.0_fp16.safetensors \
             'https://huggingface.co/stabilityai/sdxl-turbo/resolve/main/sd_xl_turbo_1.0_fp16.safetensors' &&
-          echo 'Model download completed!'
+          echo 'Model download completed!' &&
+          ls -lh /workspace/ComfyUI/models/checkpoints/
         else
-          echo 'Model already exists, skipping download.'
+          echo 'Model already exists, skipping download.' &&
+          ls -lh /workspace/ComfyUI/models/checkpoints/
         fi
       "
     restart: "no"
@@ -160,16 +164,22 @@ services:
       SERVICE_OPENSSH: "false"
       # ComfyUI specific settings
       COMFYUI_FLAGS: "--listen 0.0.0.0 --port 8188"
-    # Simplified startup command since model is pre-downloaded
+    # Download model and start ComfyUI
     command: >
       bash -c "
-        echo 'Starting ComfyUI server...' &&
+        echo 'Setting up ComfyUI...' &&
         cd /workspace/ComfyUI &&
+        mkdir -p models/checkpoints &&
+        if [ ! -f models/checkpoints/sdxl_turbo_1.0_fp16.safetensors ]; then
+          echo 'Downloading SDXL Turbo model (6.9GB)...' &&
+          wget --progress=dot:giga -O models/checkpoints/sdxl_turbo_1.0_fp16.safetensors \
+            'https://huggingface.co/stabilityai/sdxl-turbo/resolve/main/sd_xl_turbo_1.0_fp16.safetensors' &&
+          echo 'Model download completed!'
+        fi &&
+        echo 'Starting ComfyUI server...' &&
         python main.py --listen 0.0.0.0 --port 8188 --preview-method auto --verbose
       "
-    depends_on:
-      comfyui-model-downloader:
-        condition: service_completed_successfully
+    depends_on: []
     deploy:
       resources:
         reservations:
