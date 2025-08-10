@@ -109,34 +109,7 @@ services:
       - qdrant_storage:/qdrant/storage
     pull_policy: always
 
-  # ---- Download ComfyUI model (runs once) ----
-  comfyui-model-downloader:
-    image: alpine:latest
-    container_name: comfyui-model-downloader
-    networks: ['demo']
-    volumes:
-      - comfy_workspace:/workspace
-    command: >
-      sh -c "
-        echo 'Installing wget...' &&
-        apk update &&
-        apk add --no-cache wget curl &&
-        echo 'Creating directories...' &&
-        mkdir -p /workspace/ComfyUI/models/checkpoints &&
-        if [ ! -f /workspace/ComfyUI/models/checkpoints/sdxl_turbo_1.0_fp16.safetensors ]; then
-          echo 'Downloading SDXL Turbo model for RTX 3060 (6.9GB)...' &&
-          wget --progress=dot:giga -O /workspace/ComfyUI/models/checkpoints/sdxl_turbo_1.0_fp16.safetensors \
-            'https://huggingface.co/stabilityai/sdxl-turbo/resolve/main/sd_xl_turbo_1.0_fp16.safetensors' &&
-          echo 'Model download completed!' &&
-          ls -lh /workspace/ComfyUI/models/checkpoints/
-        else
-          echo 'Model already exists, skipping download.' &&
-          ls -lh /workspace/ComfyUI/models/checkpoints/
-        fi
-      "
-    restart: "no"
-
-  # ---- ComfyUI (GPU) - Force ComfyUI to actually start ----
+  # ---- ComfyUI (GPU) - Self-contained with model download ----
   comfyui:
     image: ghcr.io/ai-dock/comfyui:latest-cuda
     container_name: comfyui
@@ -146,9 +119,9 @@ services:
       - "8188:8188"  # Expose port for debugging/direct access
     volumes:
       - comfy_workspace:/workspace
-      # Mount models directory for easier management
-      - ./models/comfy:/workspace/ComfyUI/models
-      - ./output/comfy:/workspace/ComfyUI/output
+      # Comment out the conflicting mounts for now
+      # - ./models/comfy:/workspace/ComfyUI/models
+      # - ./output/comfy:/workspace/ComfyUI/output
     environment:
       # Disable all the extra services that are interfering
       WEB_ENABLE_AUTH: "false"
