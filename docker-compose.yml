@@ -144,4 +144,61 @@ services:
       - "traefik.http.services.cui.loadbalancer.server.port=8188"
     pull_policy: always
 
-  #
+  # ---- AUTOMATIC1111 (GPU) ----
+  automatic1111:
+    image: ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda
+    container_name: automatic1111
+    networks: ['demo']
+    restart: unless-stopped
+    environment:
+      # --api is required for Open WebUI
+      CLI_ARGS: "--listen --port 7860 --api --enable-insecure-extension-access --no-half-vae"
+    # Optional: publish UI for direct access
+    ports:
+      - "7860:7860"
+    volumes:
+      - a1111_data:/data
+      # Optional binds for models/outputs:
+      # - ./models/a1111:/data/models
+      # - ./output/a1111:/data/outputs
+    healthcheck:
+      test: ["CMD-SHELL", "bash -lc '</dev/tcp/127.0.0.1/7860' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 40
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    pull_policy: always
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    networks: ['demo']
+    restart: unless-stopped
+    depends_on:
+      - ollama-gpu
+      - comfyui
+      - automatic1111
+    environment:
+      # Chat LLM via Ollama
+      OLLAMA_BASE_URL: "http://ollama-gpu:11434"
+      # Image gen (can be changed later in OWUI Admin → Settings → Images)
+      ENABLE_IMAGE_GENERATION: "true"
+      IMAGE_GENERATION_ENGINE: "comfyui"                # default at boot; you can switch to automatic1111 in UI
+      COMFYUI_BASE_URL: "http://comfyui:8188"
+      AUTOMATIC1111_BASE_URL: "http://automatic1111:7860"
+    volumes:
+      - open-webui:/app/backend/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=demo"
+      - "traefik.http.routers.chat.rule=Host(`${WEBUI_DOMAIN:-chat.lab.home-cloud.uk}`)"
+      - "traefik.http.routers.chat.entrypoints=websecure"
+      - "traefik.http.routers.chat.tls=true"
+      - "traefik.http.services.chat.loadbalancer.server.port=8080"
+    pull_policy: always
