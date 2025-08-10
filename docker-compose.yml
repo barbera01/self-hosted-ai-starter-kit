@@ -11,7 +11,7 @@ volumes:
 
 networks:
   demo:
-    name: demo           # fixed name; create once: `docker network create demo`
+    name: demo         # create once: docker network create demo
     external: true
 
 services:
@@ -111,58 +111,23 @@ services:
       - qdrant_storage:/qdrant/storage
     pull_policy: always
 
-  # Image generation engine (GPU): ComfyUI
+  # ---- ComfyUI (GPU) - forced to listen on 0.0.0.0:8188 ----
   comfyui:
-  image: ghcr.io/ai-dock/comfyui:latest-cuda
-  container_name: comfyui
-  networks: ['demo']
-  restart: unless-stopped
-  working_dir: /workspace/ComfyUI
-  command: >
-    bash -lc "python main.py --listen 0.0.0.0 --port 8188"
-  volumes:
-    - comfy_workspace:/workspace
-  environment:
-    WEB_ENABLE_AUTH: "false"
-    WORKSPACE: "/workspace"
-  deploy:
-    resources:
-      reservations:
-        devices:
-          - driver: nvidia
-            count: 1
-            capabilities: [gpu]
-  labels:
-    - "traefik.enable=true"
-    - "traefik.docker.network=demo"
-    - "traefik.http.routers.cui.rule=Host(`${COMFY_DOMAIN:-comfy.lab.home-cloud.uk}`)"
-    - "traefik.http.routers.cui.entrypoints=websecure"
-    - "traefik.http.routers.cui.tls=true"
-    - "traefik.http.services.cui.loadbalancer.server.port=8188"
-    
-  # Image generation engine (GPU): AUTOMATIC1111
-  automatic1111:
-    image: ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda
-    container_name: automatic1111
+    image: ghcr.io/ai-dock/comfyui:latest-cuda
+    container_name: comfyui
     networks: ['demo']
     restart: unless-stopped
-    environment:
-      # --api is REQUIRED for Open WebUI integration
-      CLI_ARGS: "--listen --port 7860 --api --enable-insecure-extension-access --no-half-vae"
-    # Optional: publish UI for direct access; otherwise rely on internal DNS from OWUI
-    ports:
-      - "7860:7860"
+    working_dir: /workspace/ComfyUI
+    command: >
+      bash -lc "python main.py --listen 0.0.0.0 --port 8188"
     volumes:
-      - a1111_data:/data
-      # Optional: bind host model folders:
-      # - ./models/a1111:/data/models
-      # - ./output/a1111:/data/outputs
-    # Simple TCP healthcheck (no curl dependency)
-    healthcheck:
-      test: ["CMD-SHELL", "bash -lc '</dev/tcp/127.0.0.1/7860' || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 40
+      - comfy_workspace:/workspace
+      # Optional: bind host model/output folders for easier management:
+      # - ./models/comfy:/workspace/models
+      # - ./output/comfy:/workspace/output
+    environment:
+      WEB_ENABLE_AUTH: "false"
+      WORKSPACE: "/workspace"
     deploy:
       resources:
         reservations:
@@ -170,35 +135,13 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    pull_policy: always
-
-  open-webui:
-    image: ghcr.io/open-webui/open-webui:main
-    container_name: open-webui
-    networks: ['demo']
-    restart: unless-stopped
-    depends_on:
-      - ollama-gpu
-      - comfyui
-      - automatic1111
-    environment:
-      # Chat LLM via Ollama
-      OLLAMA_BASE_URL: "http://ollama-gpu:11434"
-      # Image gen config (can be changed in OWUI Admin → Settings → Images)
-      ENABLE_IMAGE_GENERATION: "true"
-      IMAGE_GENERATION_ENGINE: "comfyui"                 # default at boot; you can switch to automatic1111 in UI
-      COMFYUI_BASE_URL: "http://comfyui:8188"
-      AUTOMATIC1111_BASE_URL: "http://automatic1111:7860"
-      # Optional defaults:
-      # IMAGE_STEPS: "30"
-      # IMAGE_SIZE: "768x768"
-    volumes:
-      - open-webui:/app/backend/data
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=demo"
-      - "traefik.http.routers.chat.rule=Host(`${WEBUI_DOMAIN:-chat.lab.home-cloud.uk}`)"
-      - "traefik.http.routers.chat.entrypoints=websecure"
-      - "traefik.http.routers.chat.tls=true"
-      - "traefik.http.services.chat.loadbalancer.server.port=8080"
+      - "traefik.http.routers.cui.rule=Host(`${COMFY_DOMAIN:-comfy.lab.home-cloud.uk}`)"
+      - "traefik.http.routers.cui.entrypoints=websecure"
+      - "traefik.http.routers.cui.tls=true"
+      - "traefik.http.services.cui.loadbalancer.server.port=8188"
     pull_policy: always
+
+  #
