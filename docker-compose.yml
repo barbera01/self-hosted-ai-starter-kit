@@ -111,7 +111,29 @@ services:
       - qdrant_storage:/qdrant/storage
     pull_policy: always
 
-  # ---- ComfyUI (GPU) - Fixed configuration ----
+  # ---- Download ComfyUI model (runs once) ----
+  comfyui-model-downloader:
+    image: alpine:latest
+    container_name: comfyui-model-downloader
+    networks: ['demo']
+    volumes:
+      - comfy_workspace:/workspace
+    command: >
+      sh -c "
+        apk add --no-cache wget &&
+        mkdir -p /workspace/ComfyUI/models/checkpoints &&
+        if [ ! -f /workspace/ComfyUI/models/checkpoints/sdxl_turbo_1.0_fp16.safetensors ]; then
+          echo 'Downloading SDXL Turbo model for RTX 3060 (6.9GB)...' &&
+          wget -O /workspace/ComfyUI/models/checkpoints/sdxl_turbo_1.0_fp16.safetensors \
+            'https://huggingface.co/stabilityai/sdxl-turbo/resolve/main/sd_xl_turbo_1.0_fp16.safetensors' &&
+          echo 'Model download completed!'
+        else
+          echo 'Model already exists, skipping download.'
+        fi
+      "
+    restart: "no"
+
+  # ---- ComfyUI (GPU) - Force ComfyUI to actually start ----
   comfyui:
     image: ghcr.io/ai-dock/comfyui:latest-cuda
     container_name: comfyui
@@ -121,20 +143,34 @@ services:
       - "8188:8188"  # Expose port for debugging/direct access
     volumes:
       - comfy_workspace:/workspace
-      # Optional: bind host model/output folders for easier management:
-      # - ./models/comfy:/workspace/models
-      # - ./output/comfy:/workspace/output
+      # Mount models directory for easier management
+      - ./models/comfy:/workspace/ComfyUI/models
+      - ./output/comfy:/workspace/ComfyUI/output
     environment:
+      # Disable all the extra services that are interfering
       WEB_ENABLE_AUTH: "false"
-      WORKSPACE: "/workspace"
-      # Disable Cloudflare tunnels that are interfering
       WEB_ENABLE_QUICKTUNNEL: "false"
       WEB_ENABLE_LOGIN: "false"
-      # Ensure ComfyUI starts with correct settings
-      CLI_ARGS: "--listen 0.0.0.0 --port 8188"
-      # Force ComfyUI to start
-      SERVICE_COMFYUI: "true"
-      SERVERLESS: "false"
+      WORKSPACE: "/workspace"
+      # Force only ComfyUI to start
+      SUPERVISOR_START_COMFYUI: "true"
+      AUTO_UPDATE: "false"
+      # Disable other services
+      SERVICE_SYNCTHING: "false"
+      SERVICE_RCLONE: "false"
+      SERVICE_OPENSSH: "false"
+      # ComfyUI specific settings
+      COMFYUI_FLAGS: "--listen 0.0.0.0 --port 8188"
+    # Simplified startup command since model is pre-downloaded
+    command: >
+      bash -c "
+        echo 'Starting ComfyUI server...' &&
+        cd /workspace/ComfyUI &&
+        python main.py --listen 0.0.0.0 --port 8188 --preview-method auto --verbose
+      "
+    depends_on:
+      comfyui-model-downloader:
+        condition: service_completed_successfully
     deploy:
       resources:
         reservations:
@@ -143,15 +179,14 @@ services:
               count: 1
               capabilities: [gpu]
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8188/ || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8188/system_stats || exit 1"]
       interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 90s
+      timeout: 15s
+      retries: 15
+      start_period: 180s
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=demo"
-      # Fixed router name to match your domain
       - "traefik.http.routers.comfyui.rule=Host(`${COMFY_DOMAIN:-cui.lab.home-cloud.uk}`)"
       - "traefik.http.routers.comfyui.entrypoints=websecure"
       - "traefik.http.routers.comfyui.tls=true"
