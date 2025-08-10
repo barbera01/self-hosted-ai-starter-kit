@@ -109,50 +109,34 @@ services:
       - qdrant_storage:/qdrant/storage
     pull_policy: always
 
-  # ---- ComfyUI (GPU) - Self-contained with model download ----
+  # ---- ComfyUI (GPU) - Simplified version ----
   comfyui:
     image: ghcr.io/ai-dock/comfyui:latest-cuda
     container_name: comfyui
     networks: ['demo']
     restart: unless-stopped
     ports:
-      - "8188:8188"  # Expose port for debugging/direct access
+      - "8188:8188"
     volumes:
       - comfy_workspace:/workspace
-      # Comment out the conflicting mounts for now
-      # - ./models/comfy:/workspace/ComfyUI/models
-      # - ./output/comfy:/workspace/ComfyUI/output
     environment:
-      # Disable all the extra services that are interfering
       WEB_ENABLE_AUTH: "false"
       WEB_ENABLE_QUICKTUNNEL: "false"
       WEB_ENABLE_LOGIN: "false"
       WORKSPACE: "/workspace"
-      # Force only ComfyUI to start
-      SUPERVISOR_START_COMFYUI: "true"
-      AUTO_UPDATE: "false"
-      # Disable other services
-      SERVICE_SYNCTHING: "false"
-      SERVICE_RCLONE: "false"
-      SERVICE_OPENSSH: "false"
-      # ComfyUI specific settings
-      COMFYUI_FLAGS: "--listen 0.0.0.0 --port 8188"
-    # Download model and start ComfyUI
+    # Simplified command - let the image handle ComfyUI startup
     command: >
       bash -c "
-        echo 'Setting up ComfyUI...' &&
-        cd /workspace/ComfyUI &&
-        mkdir -p models/checkpoints &&
-        if [ ! -f models/checkpoints/sdxl_turbo_1.0_fp16.safetensors ]; then
-          echo 'Downloading SDXL Turbo model (6.9GB)...' &&
-          wget --progress=dot:giga -O models/checkpoints/sdxl_turbo_1.0_fp16.safetensors \
-            'https://huggingface.co/stabilityai/sdxl-turbo/resolve/main/sd_xl_turbo_1.0_fp16.safetensors' &&
-          echo 'Model download completed!'
-        fi &&
-        echo 'Starting ComfyUI server...' &&
-        python main.py --listen 0.0.0.0 --port 8188 --preview-method auto --verbose
+        echo 'Starting ComfyUI...' &&
+        cd /workspace &&
+        if [ -d ComfyUI ]; then
+          cd ComfyUI &&
+          python main.py --listen 0.0.0.0 --port 8188
+        else
+          echo 'ComfyUI not found in workspace'
+          exit 1
+        fi
       "
-    depends_on: []
     deploy:
       resources:
         reservations:
@@ -160,12 +144,13 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8188/system_stats || exit 1"]
-      interval: 30s
-      timeout: 15s
-      retries: 15
-      start_period: 180s
+    # Remove strict healthcheck for now
+    # healthcheck:
+    #   test: ["CMD-SHELL", "curl -f http://localhost:8188/system_stats || exit 1"]
+    #   interval: 30s
+    #   timeout: 15s
+    #   retries: 15
+    #   start_period: 180s
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=demo"
@@ -215,8 +200,9 @@ services:
     depends_on:
       ollama-gpu:
         condition: service_healthy
-      comfyui:
-        condition: service_healthy
+      # Remove ComfyUI dependency for now to test other services
+      # comfyui:
+      #   condition: service_healthy
       automatic1111:
         condition: service_healthy
     environment:
