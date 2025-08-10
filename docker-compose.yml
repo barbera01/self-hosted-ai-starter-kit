@@ -123,7 +123,7 @@ services:
       # - ./models/comfy:/workspace/models
       # - ./output/comfy:/workspace/output
     environment:
-      COMFYUI_PORT: "8188"
+      COMFYUI_PORT: "18188"
       WEB_ENABLE_AUTH: "false"
       WORKSPACE: "/workspace"
     labels:
@@ -132,7 +132,7 @@ services:
       - "traefik.http.routers.cui.rule=Host(`${N8N_DOMAIN:-cui.lab.home-cloud.uk}`)"
       - "traefik.http.routers.cui.entrypoints=websecure"
       - "traefik.http.routers.cui.tls=true"
-      - "traefik.http.services.cui.loadbalancer.server.port=8188"
+      - "traefik.http.services.cui.loadbalancer.server.port=18188"
     deploy:
       resources:
         reservations:
