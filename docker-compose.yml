@@ -126,6 +126,13 @@ services:
       COMFYUI_PORT: "8188"
       WEB_ENABLE_AUTH: "false"
       WORKSPACE: "/workspace"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=demo"
+      - "traefik.http.routers.cui.rule=Host(`${N8N_DOMAIN:-cui.lab.home-cloud.uk}`)"
+      - "traefik.http.routers.cui.entrypoints=websecure"
+      - "traefik.http.routers.cui.tls=true"
+      - "traefik.http.services.cui.loadbalancer.server.port=8188"
     deploy:
       resources:
         reservations:
