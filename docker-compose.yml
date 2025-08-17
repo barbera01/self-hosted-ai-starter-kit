@@ -1,3 +1,4 @@
+version: "3.9"
 
 volumes:
   n8n_storage:
@@ -59,8 +60,8 @@ services:
       - n8n_storage:/home/node/.n8n
       - ./n8n/backup:/backup
       - ./shared:/data/shared
-      - avatar_input:/data/avatar_input  # New avatar input access
-      - avatar_output:/data/avatar_output  # New avatar output access
+      - avatar_input:/data/avatar_input
+      - avatar_output:/data/avatar_output
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=demo"
@@ -89,12 +90,11 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-        # RTX 3060 memory optimization
         limits:
-          memory: 8G  # Reserve system RAM for other processes
+          memory: 8G
     environment:
       - NVIDIA_VISIBLE_DEVICES=0
-      - OLLAMA_GPU_MEMORY_FRACTION=0.6  # Reserve 40% GPU memory for other services
+      - OLLAMA_GPU_MEMORY_FRACTION=0.6
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 10s
@@ -126,25 +126,20 @@ services:
       - qdrant_storage:/qdrant/storage
     pull_policy: always
 
-  # ---- ComfyUI (GPU) - Enhanced for avatar workflows ----
+  # ---- ComfyUI (Simplified & Reliable) ----
   comfyui:
-    image: ghcr.io/ai-dock/comfyui:latest-cuda
+    image: yanwk/comfyui-boot:latest
     container_name: comfyui
     networks: ['demo']
     restart: unless-stopped
     ports:
       - "8188:8188"
     volumes:
-      - comfy_workspace:/workspace
-      - avatar_input:/workspace/input/avatars  # Direct avatar input access
-      - avatar_output:/workspace/output/avatars  # Direct avatar output access
+      - comfy_workspace:/root
+      - avatar_input:/root/ComfyUI/input/avatars
+      - avatar_output:/root/ComfyUI/output/avatars
     environment:
-      WEB_ENABLE_AUTH: "false"
-      WEB_ENABLE_QUICKTUNNEL: "false"
-      WEB_ENABLE_LOGIN: "false"
-      WORKSPACE: "/workspace"
-      # GPU memory optimization for RTX 3060
-      PYTORCH_CUDA_ALLOC_CONF: "max_split_size_mb:512"
+      - CLI_ARGS=--listen 0.0.0.0 --port 8188
     deploy:
       resources:
         reservations:
@@ -170,7 +165,7 @@ services:
     networks: ['demo']
     restart: unless-stopped
     environment:
-      CLI_ARGS: "--listen --port 7860 --api --enable-insecure-extension-access --no-half-vae --medvram"  # Added --medvram for RTX 3060
+      CLI_ARGS: "--listen --port 7860 --api --enable-insecure-extension-access --no-half-vae --medvram"
     ports:
       - "7860:7860"
     volumes:
@@ -202,10 +197,11 @@ services:
         condition: service_healthy
       automatic1111:
         condition: service_healthy
+      # Removed ComfyUI dependency to prevent blocking
     environment:
       OLLAMA_BASE_URL: "http://ollama-gpu:11434"
       ENABLE_IMAGE_GENERATION: "true"
-      IMAGE_GENERATION_ENGINE: "comfyui"
+      IMAGE_GENERATION_ENGINE: "automatic1111"  # Changed to A1111 as fallback
       COMFYUI_BASE_URL: "http://comfyui:8188"
       AUTOMATIC1111_BASE_URL: "http://automatic1111:7860"
       WEBUI_NAME: "AI Chat & Image Generation"
@@ -222,24 +218,21 @@ services:
       - "traefik.http.services.chat.loadbalancer.server.port=8080"
     pull_policy: always
 
-  # ---- NEW: TTS Service (Optimized for RTX 3060) ----
+  # ---- TTS Service (Using reliable alternative) ----
   coqui-tts:
-    image: ghcr.io/coqui-ai/tts:latest-gpu
+    image: coqui/tts:latest
     container_name: coqui-tts
     networks: ['demo']
     restart: unless-stopped
     ports:
       - "5002:5002"
     volumes:
-      - tts_models:/app/tts_models
+      - tts_models:/root/.local/share/tts
       - tts_output:/app/output
       - avatar_input:/app/avatar_input
     environment:
       - NVIDIA_VISIBLE_DEVICES=0
       - CUDA_VISIBLE_DEVICES=0
-      # Optimize for 12GB VRAM
-      - TTS_CACHE_PATH=/app/tts_models
-      - TTS_SERVER_ENABLE_CORS=true
     deploy:
       resources:
         reservations:
@@ -248,31 +241,18 @@ services:
               count: 1
               capabilities: [gpu]
         limits:
-          memory: 6G  # Conservative memory limit
-    command: ["tts-server", "--host", "0.0.0.0", "--port", "5002", "--use_cuda", "true"]
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5002/docs"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=demo"
-      - "traefik.http.routers.tts.rule=Host(`${TTS_DOMAIN:-tts.lab.home-cloud.uk}`)"
-      - "traefik.http.routers.tts.entrypoints=websecure"
-      - "traefik.http.routers.tts.tls=true"
-      - "traefik.http.services.tts.loadbalancer.server.port=5002"
+          memory: 6G
+    command: ["tts-server", "--model_name", "tts_models/en/ljspeech/tacotron2-DDC", "--host", "0.0.0.0", "--port", "5002"]
     pull_policy: always
 
-  # ---- NEW: SadTalker Avatar Generation (RTX 3060 Optimized) ----
+  # ---- SadTalker Avatar Generation ----
   sadtalker:
-    image: winglian/sadtalker:latest
+    image: registry.gitlab.com/face2vid/sadtalker:latest
     container_name: sadtalker
     networks: ['demo']
     restart: unless-stopped
     ports:
-      - "7860:7860"  # Different port from A1111
+      - "7861:7860"  # Different port from A1111
     volumes:
       - sadtalker_models:/app/checkpoints
       - avatar_input:/app/examples
@@ -283,9 +263,6 @@ services:
       - CUDA_VISIBLE_DEVICES=0
       - GRADIO_SERVER_NAME=0.0.0.0
       - GRADIO_SERVER_PORT=7860
-      # RTX 3060 12GB optimizations
-      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:2048
-      - CUDA_LAUNCH_BLOCKING=1
     deploy:
       resources:
         reservations:
@@ -295,32 +272,12 @@ services:
               capabilities: [gpu]
         limits:
           memory: 12G
-    command: >
-      bash -c "
-      cd /app &&
-      python app.py --ip 0.0.0.0 --port 7860 --device cuda
-      "
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7860/"]
-      interval: 45s
-      timeout: 15s
-      retries: 3
-      start_period: 180s  # SadTalker takes time to load models
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=demo"
-      - "traefik.http.routers.sadtalker.rule=Host(`${SADTALKER_DOMAIN:-avatar.lab.home-cloud.uk}`)"
-      - "traefik.http.routers.sadtalker.entrypoints=websecure"
-      - "traefik.http.routers.sadtalker.tls=true"
-      - "traefik.http.services.sadtalker.loadbalancer.server.port=7860"
     pull_policy: always
 
-  # ---- NEW: Avatar Pipeline Coordinator ----
-  avatar-coordinator:
-    build: 
-      context: ./avatar-coordinator
-      dockerfile: Dockerfile
-    container_name: avatar-coordinator
+  # ---- Avatar API (Simplified without build dependency) ----
+  avatar-api:
+    image: python:3.11-slim
+    container_name: avatar-api
     networks: ['demo']
     restart: unless-stopped
     ports:
@@ -330,51 +287,18 @@ services:
       - avatar_output:/app/output
       - tts_output:/app/audio
       - ./shared:/app/shared
+      - ./avatar-api.py:/app/avatar-api.py
+    working_dir: /app
     environment:
-      # Service URLs for internal communication
       - OLLAMA_URL=http://ollama-gpu:11434
       - TTS_URL=http://coqui-tts:5002
       - SADTALKER_URL=http://sadtalker:7860
       - COMFYUI_URL=http://comfyui:8188
-      # RTX 3060 specific settings
-      - GPU_MEMORY_FRACTION=0.8
-      - MAX_CONCURRENT_JOBS=2  # Conservative for 12GB VRAM
-      - PROCESSING_TIMEOUT=300  # 5 minutes timeout
-    depends_on:
-      - coqui-tts
-      - sadtalker
-      - ollama-gpu
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=demo"
-      - "traefik.http.routers.avatar-api.rule=Host(`${AVATAR_API_DOMAIN:-avatar-api.lab.home-cloud.uk}`)"
-      - "traefik.http.routers.avatar-api.entrypoints=websecure"
-      - "traefik.http.routers.avatar-api.tls=true"
-      - "traefik.http.services.avatar-api.loadbalancer.server.port=8090"
-
-  # ---- Model Downloader (Run once to populate models) ----
-  model-downloader:
-    image: python:3.11-slim
-    container_name: model-downloader
-    networks: ['demo']
-    volumes:
-      - sadtalker_models:/app/sadtalker_models
-      - tts_models:/app/tts_models
-      - ./download-models.sh:/app/download-models.sh
-    environment:
-      - HF_HOME=/app/hf_cache
     command: >
       bash -c "
-      apt-get update && apt-get install -y wget curl git &&
-      pip install huggingface_hub &&
-      chmod +x /app/download-models.sh &&
-      /app/download-models.sh &&
-      echo 'Models downloaded successfully'
+      pip install fastapi uvicorn aiohttp aiofiles python-multipart &&
+      python avatar-api.py
       "
-    restart: "no"  # Run once only
-    profiles: ["setup"]  # Only run when explicitly requested
+    depends_on:
+      - ollama-gpu
+    pull_policy: always
