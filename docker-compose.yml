@@ -1,3 +1,4 @@
+version: "3.9"
 
 volumes:
   n8n_storage:
@@ -7,11 +8,9 @@ volumes:
   open-webui:
   comfy_workspace:
   a1111_data:
-  # New volumes for avatar generation
-  avatar_models:
+  # Simple avatar volumes
   avatar_input:
   avatar_output:
-  tts_models:
   tts_output:
 
 networks:
@@ -20,7 +19,6 @@ networks:
     external: true
 
 services:
-  # Your existing services remain unchanged
   postgres:
     image: postgres:16-alpine
     networks: ['demo']
@@ -58,8 +56,6 @@ services:
       - n8n_storage:/home/node/.n8n
       - ./n8n/backup:/backup
       - ./shared:/data/shared
-      - avatar_input:/data/avatar_input
-      - avatar_output:/data/avatar_output
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=demo"
@@ -124,20 +120,21 @@ services:
       - qdrant_storage:/qdrant/storage
     pull_policy: always
 
-  # ---- ComfyUI (Working stable image) ----
+  # ---- Your Original ComfyUI (Simplified version) ----
   comfyui:
-    image: yanwk/comfyui-boot:latest
+    image: ghcr.io/ai-dock/comfyui:latest-cuda
     container_name: comfyui
     networks: ['demo']
     restart: unless-stopped
     ports:
       - "8188:8188"
     volumes:
-      - comfy_workspace:/root
-      - avatar_input:/root/ComfyUI/input/avatars
-      - avatar_output:/root/ComfyUI/output/avatars
+      - comfy_workspace:/workspace
     environment:
-      - CLI_ARGS=--listen 0.0.0.0 --port 8188
+      WEB_ENABLE_AUTH: "false"
+      WEB_ENABLE_QUICKTUNNEL: "false"
+      WEB_ENABLE_LOGIN: "false"
+      WORKSPACE: "/workspace"
     deploy:
       resources:
         reservations:
@@ -215,7 +212,7 @@ services:
       - "traefik.http.services.chat.loadbalancer.server.port=8080"
     pull_policy: always
 
-  # ---- Simple TTS Service ----
+  # ---- SIMPLE TTS Service (Only if you want it) ----
   simple-tts:
     image: python:3.11-slim
     container_name: simple-tts
@@ -232,9 +229,10 @@ services:
       pip install fastapi uvicorn pydantic gtts &&
       python simple-tts.py
       "
+    profiles: ["avatar"]  # Only start with: docker-compose --profile avatar up
     pull_policy: always
 
-  # ---- Avatar API (Simplified) ----
+  # ---- SIMPLE Avatar API (Only if you want it) ----
   avatar-api:
     image: python:3.11-slim
     container_name: avatar-api
@@ -260,5 +258,5 @@ services:
       "
     depends_on:
       - ollama-gpu
-      - simple-tts
+    profiles: ["avatar"]  # Only start with: docker-compose --profile avatar up
     pull_policy: always
