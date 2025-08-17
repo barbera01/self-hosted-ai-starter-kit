@@ -120,37 +120,41 @@ services:
       - qdrant_storage:/qdrant/storage
     pull_policy: always
 
-  # ---- Your Original ComfyUI (Simplified version) ----
-  comfyui:
-    image: ghcr.io/ai-dock/comfyui:latest-cuda
-    container_name: comfyui
-    networks: ['demo']
-    restart: unless-stopped
-    ports:
-      - "8188:8188"
-    volumes:
-      - comfy_workspace:/workspace
-    environment:
-      WEB_ENABLE_AUTH: "false"
-      WEB_ENABLE_QUICKTUNNEL: "false"
-      WEB_ENABLE_LOGIN: "false"
-      WORKSPACE: "/workspace"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-        limits:
-          memory: 10G
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=demo"
-      - "traefik.http.routers.comfyui.rule=Host(`${COMFY_DOMAIN:-cui.lab.home-cloud.uk}`)"
-      - "traefik.http.routers.comfyui.entrypoints=websecure"
-      - "traefik.http.routers.comfyui.tls=true"
-      - "traefik.http.services.comfyui.loadbalancer.server.port=8188"
+comfyui:
+  image: ghcr.io/ai-dock/comfyui:latest-cuda
+  container_name: comfyui
+  networks: ['demo']
+  restart: unless-stopped
+  ports:
+    - "8188:8188"
+  volumes:
+    - comfy_workspace:/workspace
+  environment:
+    WEB_ENABLE_AUTH: "false"
+    WEB_ENABLE_QUICKTUNNEL: "false"
+    WEB_ENABLE_LOGIN: "false"
+    WORKSPACE: "/workspace"
+    # Add these GPU environment variables
+    NVIDIA_VISIBLE_DEVICES: "0"
+    CUDA_VISIBLE_DEVICES: "0"
+    NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
+      limits:
+        memory: 10G
+  labels:
+    - "traefik.enable=true"
+    - "traefik.docker.network=demo"
+    - "traefik.http.routers.comfyui.rule=Host(`${COMFY_DOMAIN:-cui.lab.home-cloud.uk}`)"
+    - "traefik.http.routers.comfyui.entrypoints=websecure"
+    - "traefik.http.routers.comfyui.tls=true"
+    - "traefik.http.services.comfyui.loadbalancer.server.port=8188"
+  pull_policy: always
     pull_policy: always
 
   # ---- AUTOMATIC1111 (GPU) ----
