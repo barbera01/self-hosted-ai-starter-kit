@@ -1,95 +1,264 @@
-#!/usr/bin/env python3
-"""
-Simple TTS Service using Google Text-to-Speech
-Save this as simple-tts.py in your project root
-"""
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
-from pydantic import BaseModel
-from gtts import gTTS
-import os
-import hashlib
-import tempfile
-import logging
+volumes:
+  n8n_storage:
+  postgres_storage:
+  ollama_storage:
+  qdrant_storage:
+  open-webui:
+  comfy_workspace:
+  a1111_data:
+  # New volumes for avatar generation
+  avatar_models:
+  avatar_input:
+  avatar_output:
+  tts_models:
+  tts_output:
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+networks:
+  demo:
+    name: demo
+    external: true
 
-class TTSRequest(BaseModel):
-    text: str
-    language: str = "en"
-    slow: bool = False
+services:
+  # Your existing services remain unchanged
+  postgres:
+    image: postgres:16-alpine
+    networks: ['demo']
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-ai}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-change_me}
+      - POSTGRES_DB=${POSTGRES_DB:-ai_db}
+    volumes:
+      - postgres_storage:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h localhost -U ${POSTGRES_USER:-ai} -d ${POSTGRES_DB:-ai_db}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    pull_policy: always
 
-app = FastAPI(title="Simple TTS Service", version="1.0.0")
+  n8n:
+    image: n8nio/n8n:latest
+    networks: ['demo']
+    container_name: n8n
+    restart: unless-stopped
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_USER=${POSTGRES_USER:-ai}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-change_me}
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_PERSONALIZATION_ENABLED=false
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-changeme}
+      - N8N_USER_MANAGEMENT_JWT_SECRET=${N8N_USER_MANAGEMENT_JWT_SECRET:-changeme}
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_storage:/home/node/.n8n
+      - ./n8n/backup:/backup
+      - ./shared:/data/shared
+      - avatar_input:/data/avatar_input
+      - avatar_output:/data/avatar_output
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=demo"
+      - "traefik.http.routers.n8n.rule=Host(`${N8N_DOMAIN:-n8n.lab.home-cloud.uk}`)"
+      - "traefik.http.routers.n8n.entrypoints=websecure"
+      - "traefik.http.routers.n8n.tls=true"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    pull_policy: always
 
-@app.get("/")
-async def root():
-    return {"message": "Simple TTS Service is running"}
+  ollama-gpu:
+    image: ollama/ollama:latest
+    container_name: ollama-gpu
+    networks: ['demo']
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_storage:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+        limits:
+          memory: 8G
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=0
+      - OLLAMA_GPU_MEMORY_FRACTION=0.6
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    pull_policy: always
 
-@app.get("/health")
-async def health():
-    return {"status": "healthy"}
+  ollama-pull-llama-gpu:
+    image: ollama/ollama:latest
+    container_name: ollama-pull-llama-gpu
+    networks: ['demo']
+    volumes:
+      - ollama_storage:/root/.ollama
+    entrypoint: /bin/sh
+    command: ["-c", "sleep 3; OLLAMA_HOST=ollama-gpu:11434 ollama pull llama3.3"]
+    depends_on:
+      ollama-gpu:
+        condition: service_healthy
+    pull_policy: always
 
-@app.post("/tts")
-async def text_to_speech(request: TTSRequest):
-    """Convert text to speech using Google TTS"""
-    try:
-        # Create output directory
-        os.makedirs("/app/output", exist_ok=True)
-        
-        # Generate filename
-        text_hash = hashlib.md5(request.text.encode()).hexdigest()[:8]
-        filename = f"tts_{text_hash}.mp3"
-        filepath = f"/app/output/{filename}"
-        
-        # Check if file already exists
-        if os.path.exists(filepath):
-            return {"filename": filename, "url": f"/download/{filename}"}
-        
-        # Generate speech
-        tts = gTTS(text=request.text, lang=request.language, slow=request.slow)
-        tts.save(filepath)
-        
-        logger.info(f"Generated TTS for text: {request.text[:50]}...")
-        
-        return {"filename": filename, "url": f"/download/{filename}"}
-        
-    except Exception as e:
-        logger.error(f"TTS generation failed: {e}")
-        raise HTTPException(status_code=500, detail=f"TTS generation failed: {str(e)}")
+  qdrant:
+    image: qdrant/qdrant
+    container_name: qdrant
+    networks: ['demo']
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    pull_policy: always
 
-@app.get("/download/{filename}")
-async def download_audio(filename: str):
-    """Download generated audio file"""
-    filepath = f"/app/output/{filename}"
-    
-    if not os.path.exists(filepath):
-        raise HTTPException(status_code=404, detail="Audio file not found")
-    
-    return FileResponse(
-        filepath,
-        media_type='audio/mpeg',
-        filename=filename
-    )
+  # ---- ComfyUI (Working stable image) ----
+  comfyui:
+    image: yanwk/comfyui-boot:latest
+    container_name: comfyui
+    networks: ['demo']
+    restart: unless-stopped
+    ports:
+      - "8188:8188"
+    volumes:
+      - comfy_workspace:/root
+      - avatar_input:/root/ComfyUI/input/avatars
+      - avatar_output:/root/ComfyUI/output/avatars
+    environment:
+      - CLI_ARGS=--listen 0.0.0.0 --port 8188
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+        limits:
+          memory: 10G
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=demo"
+      - "traefik.http.routers.comfyui.rule=Host(`${COMFY_DOMAIN:-cui.lab.home-cloud.uk}`)"
+      - "traefik.http.routers.comfyui.entrypoints=websecure"
+      - "traefik.http.routers.comfyui.tls=true"
+      - "traefik.http.services.comfyui.loadbalancer.server.port=8188"
+    pull_policy: always
 
-@app.get("/list")
-async def list_audio_files():
-    """List all generated audio files"""
-    output_dir = "/app/output"
-    if not os.path.exists(output_dir):
-        return {"files": []}
-    
-    files = []
-    for filename in os.listdir(output_dir):
-        if filename.endswith('.mp3'):
-            files.append({
-                "filename": filename,
-                "url": f"/download/{filename}"
-            })
-    
-    return {"files": files}
+  # ---- AUTOMATIC1111 (GPU) ----
+  automatic1111:
+    image: ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda
+    container_name: automatic1111
+    networks: ['demo']
+    restart: unless-stopped
+    environment:
+      CLI_ARGS: "--listen --port 7860 --api --enable-insecure-extension-access --no-half-vae --medvram"
+    ports:
+      - "7860:7860"
+    volumes:
+      - a1111_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:7860/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+        limits:
+          memory: 8G
+    pull_policy: always
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=5002)
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    networks: ['demo']
+    restart: unless-stopped
+    depends_on:
+      ollama-gpu:
+        condition: service_healthy
+      automatic1111:
+        condition: service_healthy
+    environment:
+      OLLAMA_BASE_URL: "http://ollama-gpu:11434"
+      ENABLE_IMAGE_GENERATION: "true"
+      IMAGE_GENERATION_ENGINE: "automatic1111"
+      COMFYUI_BASE_URL: "http://comfyui:8188"
+      AUTOMATIC1111_BASE_URL: "http://automatic1111:7860"
+      WEBUI_NAME: "AI Chat & Image Generation"
+      DEFAULT_USER_ROLE: "user"
+      ENABLE_COMMUNITY_SHARING: "false"
+    volumes:
+      - open-webui:/app/backend/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=demo"
+      - "traefik.http.routers.chat.rule=Host(`${WEBUI_DOMAIN:-chat.lab.home-cloud.uk}`)"
+      - "traefik.http.routers.chat.entrypoints=websecure"
+      - "traefik.http.routers.chat.tls=true"
+      - "traefik.http.services.chat.loadbalancer.server.port=8080"
+    pull_policy: always
+
+  # ---- Simple TTS Service ----
+  simple-tts:
+    image: python:3.11-slim
+    container_name: simple-tts
+    networks: ['demo']
+    restart: unless-stopped
+    ports:
+      - "5002:5002"
+    volumes:
+      - tts_output:/app/output
+      - ./simple-tts.py:/app/simple-tts.py
+    working_dir: /app
+    command: >
+      bash -c "
+      pip install fastapi uvicorn pydantic gtts &&
+      python simple-tts.py
+      "
+    pull_policy: always
+
+  # ---- Avatar API (Simplified) ----
+  avatar-api:
+    image: python:3.11-slim
+    container_name: avatar-api
+    networks: ['demo']
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    volumes:
+      - avatar_input:/app/input
+      - avatar_output:/app/output
+      - tts_output:/app/audio
+      - ./shared:/app/shared
+      - ./avatar-api.py:/app/avatar-api.py
+    working_dir: /app
+    environment:
+      - OLLAMA_URL=http://ollama-gpu:11434
+      - TTS_URL=http://simple-tts:5002
+      - COMFYUI_URL=http://comfyui:8188
+    command: >
+      bash -c "
+      pip install fastapi uvicorn aiohttp aiofiles python-multipart pillow &&
+      python avatar-api.py
+      "
+    depends_on:
+      - ollama-gpu
+      - simple-tts
+    pull_policy: always
