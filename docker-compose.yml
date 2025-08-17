@@ -130,7 +130,6 @@ services:
       - "8188:8188"
     volumes:
       - comfy_workspace:/workspace
-      - ./comfy/custom_nodes:/opt/ComfyUI/custom_nodes
     environment:
       WEB_ENABLE_AUTH: "false"
       WEB_ENABLE_QUICKTUNNEL: "false"
