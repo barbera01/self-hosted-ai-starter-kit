@@ -124,9 +124,9 @@ services:
       - qdrant_storage:/qdrant/storage
     pull_policy: always
 
-  # ---- Kokoro GPU TTS Backend (Using latest stable version) ----
+  # ---- Kokoro TTS Backend (CPU version - compatible) ----
   kokoro-gpu:
-    image: ghcr.io/remsky/kokoro-fastapi-gpu:latest
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:latest
     container_name: kokoro-gpu
     networks: ['demo']
     restart: unless-stopped
@@ -137,27 +137,22 @@ services:
       - kokoro_cache:/app/cache
       - ./shared:/app/shared  # Share with other services
     environment:
-      - CUDA_VISIBLE_DEVICES=0
-      - NVIDIA_VISIBLE_DEVICES=0
       - MODEL_CACHE_DIR=/app/models
-      - USE_GPU=true
-      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:256
+      - WORKERS=2
+      - MAX_CONCURRENT_REQUESTS=4
+      - USE_GPU=false
     deploy:
       resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
         limits:
-          memory: 3G
-    shm_size: 512mb
+          memory: 4G
+          cpus: '2.0'
+    shm_size: 1gb
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8880/health", "||", "exit", "1"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 90s
+      start_period: 60s
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=demo"
