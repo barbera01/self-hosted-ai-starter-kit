@@ -1,3 +1,4 @@
+# version: "3.9"  # Removed as it's obsolete
 
 volumes:
   n8n_storage:
@@ -123,9 +124,9 @@ services:
       - qdrant_storage:/qdrant/storage
     pull_policy: always
 
-  # ---- Kokoro GPU TTS Backend (Compatible version) ----
+  # ---- Kokoro GPU TTS Backend (Using latest stable version) ----
   kokoro-gpu:
-    image: ghcr.io/remsky/kokoro-fastapi-gpu:v0.1.5
+    image: ghcr.io/remsky/kokoro-fastapi-gpu:latest
     container_name: kokoro-gpu
     networks: ['demo']
     restart: unless-stopped
@@ -139,6 +140,7 @@ services:
       - CUDA_VISIBLE_DEVICES=0
       - NVIDIA_VISIBLE_DEVICES=0
       - MODEL_CACHE_DIR=/app/models
+      - USE_GPU=true
       - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:256
     deploy:
       resources:
@@ -149,7 +151,6 @@ services:
               capabilities: [gpu]
         limits:
           memory: 3G
-    runtime: nvidia
     shm_size: 512mb
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8880/health", "||", "exit", "1"]
