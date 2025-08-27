@@ -12,6 +12,10 @@ volumes:
   avatar_input:
   avatar_output:
   tts_output:
+  # Kokoro volumes
+  kokoro_models:
+  kokoro_cache:
+  kokoro_web_cache:
 
 networks:
   demo:
@@ -120,6 +124,75 @@ services:
       - qdrant_storage:/qdrant/storage
     pull_policy: always
 
+  # ---- Kokoro GPU TTS Backend ----
+  kokoro-gpu:
+    image: ghcr.io/remsky/kokoro-fastapi-gpu:v0.2.2
+    container_name: kokoro-gpu
+    networks: ['demo']
+    restart: unless-stopped
+    ports:
+      - "8880:8880"
+    volumes:
+      - kokoro_models:/app/models
+      - kokoro_cache:/app/cache
+      - ./shared:/app/shared  # Share with other services
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=0
+      - MODEL_CACHE_DIR=/app/models
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+        limits:
+          memory: 4G
+    shm_size: 1gb
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8880/health", "||", "exit", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=demo"
+      - "traefik.http.routers.kokoro-api.rule=Host(`${KOKORO_API_DOMAIN:-kokoro-api.lab.home-cloud.uk}`)"
+      - "traefik.http.routers.kokoro-api.entrypoints=websecure"
+      - "traefik.http.routers.kokoro-api.tls=true"
+      - "traefik.http.services.kokoro-api.loadbalancer.server.port=8880"
+    pull_policy: always
+
+  # ---- Kokoro Web Frontend ----
+  kokoro-web:
+    image: ghcr.io/eduardolat/kokoro-web:latest
+    container_name: kokoro-web
+    networks: ['demo']
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - kokoro_web_cache:/kokoro/cache
+      - ./shared:/app/shared
+    environment:
+      - KW_SECRET_API_KEY=${KOKORO_API_KEY:-kokoro-local-gpu}
+      - KW_PUBLIC_NO_TRACK=true
+      - KOKORO_BACKEND_URL=http://kokoro-gpu:8880
+    depends_on:
+      kokoro-gpu:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=demo"
+      - "traefik.http.routers.kokoro-web.rule=Host(`${KOKORO_WEB_DOMAIN:-tts.lab.home-cloud.uk}`)"
+      - "traefik.http.routers.kokoro-web.entrypoints=websecure"
+      - "traefik.http.routers.kokoro-web.tls=true"
+      - "traefik.http.services.kokoro-web.loadbalancer.server.port=3000"
+    pull_policy: always
+
   # ---- ComfyUI (Fixed indentation and GPU config) ----
   comfyui:
     image: ghcr.io/ai-dock/comfyui:latest-cuda
@@ -186,6 +259,7 @@ services:
           memory: 8G
     pull_policy: always
 
+  # ---- Open WebUI (Updated with Kokoro TTS integration) ----
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
     container_name: open-webui
@@ -196,13 +270,22 @@ services:
         condition: service_healthy
       automatic1111:
         condition: service_healthy
+      kokoro-gpu:
+        condition: service_healthy
     environment:
       OLLAMA_BASE_URL: "http://ollama-gpu:11434"
       ENABLE_IMAGE_GENERATION: "true"
       IMAGE_GENERATION_ENGINE: "automatic1111"
       COMFYUI_BASE_URL: "http://comfyui:8188"
       AUTOMATIC1111_BASE_URL: "http://automatic1111:7860"
-      WEBUI_NAME: "AI Chat & Image Generation"
+      # Kokoro TTS Integration
+      AUDIO_TTS_ENABLED: "true"
+      AUDIO_TTS_ENGINE: "openai"
+      AUDIO_TTS_API_BASE_URL: "http://kokoro-gpu:8880/v1"
+      AUDIO_TTS_API_KEY: "not-needed"
+      AUDIO_TTS_MODEL: "kokoro"
+      AUDIO_TTS_VOICE: "af_heart"
+      WEBUI_NAME: "AI Chat, Image & Voice Generation"
       DEFAULT_USER_ROLE: "user"
       ENABLE_COMMUNITY_SHARING: "false"
     volumes:
@@ -236,7 +319,7 @@ services:
     profiles: ["avatar"]  # Only start with: docker-compose --profile avatar up
     pull_policy: always
 
-  # ---- SIMPLE Avatar API (Only if you want it) ----
+  # ---- SIMPLE Avatar API (Updated with Kokoro support) ----
   avatar-api:
     image: python:3.11-slim
     container_name: avatar-api
@@ -253,7 +336,8 @@ services:
     working_dir: /app
     environment:
       - OLLAMA_URL=http://ollama-gpu:11434
-      - TTS_URL=http://simple-tts:5002
+      - TTS_URL=http://kokoro-gpu:8880/v1  # Use Kokoro instead of simple-tts
+      - KOKORO_TTS_URL=http://kokoro-gpu:8880/v1
       - COMFYUI_URL=http://comfyui:8188
     command: >
       bash -c "
@@ -262,5 +346,6 @@ services:
       "
     depends_on:
       - ollama-gpu
+      - kokoro-gpu
     profiles: ["avatar"]  # Only start with: docker-compose --profile avatar up
     pull_policy: always
