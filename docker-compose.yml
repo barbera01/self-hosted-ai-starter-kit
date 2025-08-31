@@ -126,7 +126,7 @@ services:
 
   # ---- Kokoro TTS Backend (GPU version) ----
   kokoro-gpu:
-    image: ghcr.io/remsky/kokoro-fastapi:latest
+    image: ghcr.io/remsky/kokoro-fastapi-gpu:v0.2.1
     container_name: kokoro-gpu
     networks: ['demo']
     restart: unless-stopped
