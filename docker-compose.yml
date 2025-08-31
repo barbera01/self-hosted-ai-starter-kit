@@ -124,10 +124,10 @@ services:
       - qdrant_storage:/qdrant/storage
     pull_policy: missing
 
-  # ---- Kokoro TTS Backend - GPU Compatible for CUDA 12.6 ----
+  # ---- Kokoro TTS Backend - Latest GPU version for CUDA 12.9 ----
   kokoro-gpu:
-    # Use v0.1.4 - most compatible GPU version for CUDA 12.6
-    image: ghcr.io/remsky/kokoro-fastapi-gpu:v0.1.4
+    # Use latest GPU version now that you have CUDA 12.9
+    image: ghcr.io/remsky/kokoro-fastapi-gpu:latest
     container_name: kokoro-gpu
     networks: ['demo']
     restart: unless-stopped
