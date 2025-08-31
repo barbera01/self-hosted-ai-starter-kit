@@ -38,7 +38,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-    pull_policy: always
+    pull_policy: missing
 
   n8n:
     image: n8nio/n8n:latest
@@ -70,7 +70,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    pull_policy: always
+    pull_policy: missing
 
   ollama-gpu:
     image: ollama/ollama:latest
@@ -89,16 +89,16 @@ services:
               count: 1
               capabilities: [gpu]
         limits:
-          memory: 8G
+          memory: 6G  # Reduced from 8G to share GPU with Kokoro
     environment:
       - NVIDIA_VISIBLE_DEVICES=0
-      - OLLAMA_GPU_MEMORY_FRACTION=0.6
+      - OLLAMA_GPU_MEMORY_FRACTION=0.3  # Reduced from 0.6 to share GPU with Kokoro
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 10s
       timeout: 5s
       retries: 12
-    pull_policy: always
+    pull_policy: missing
 
   ollama-pull-llama-gpu:
     image: ollama/ollama:latest
@@ -111,7 +111,7 @@ services:
     depends_on:
       ollama-gpu:
         condition: service_healthy
-    pull_policy: always
+    pull_policy: missing
 
   qdrant:
     image: qdrant/qdrant
@@ -122,11 +122,12 @@ services:
       - "6333:6333"
     volumes:
       - qdrant_storage:/qdrant/storage
-    pull_policy: always
+    pull_policy: missing
 
-  # ---- Kokoro TTS Backend (GPU version) ----
+  # ---- Kokoro TTS Backend - GPU Compatible for CUDA 12.6 ----
   kokoro-gpu:
-    image: ghcr.io/remsky/kokoro-fastapi-gpu:v0.2.1
+    # Use v0.1.4 - most compatible GPU version for CUDA 12.6
+    image: ghcr.io/remsky/kokoro-fastapi-gpu:v0.1.4
     container_name: kokoro-gpu
     networks: ['demo']
     restart: unless-stopped
@@ -135,14 +136,15 @@ services:
     volumes:
       - kokoro_models:/app/models
       - kokoro_cache:/app/cache
-      - ./shared:/app/shared  # Share with other services
+      - ./shared:/app/shared
     environment:
       - MODEL_CACHE_DIR=/app/models
-      - WORKERS=1
-      - MAX_CONCURRENT_REQUESTS=2
+      - WORKERS=2
+      - MAX_CONCURRENT_REQUESTS=4
       - USE_GPU=true
       - NVIDIA_VISIBLE_DEVICES=0
       - CUDA_VISIBLE_DEVICES=0
+      - PYTHONUNBUFFERED=1
     deploy:
       resources:
         reservations:
@@ -152,13 +154,13 @@ services:
               capabilities: [gpu]
         limits:
           memory: 4G
-    shm_size: 1gb
+    shm_size: 2gb
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8880/health", "||", "exit", "1"]
       interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=demo"
@@ -166,7 +168,7 @@ services:
       - "traefik.http.routers.kokoro-api.entrypoints=websecure"
       - "traefik.http.routers.kokoro-api.tls=true"
       - "traefik.http.services.kokoro-api.loadbalancer.server.port=8880"
-    pull_policy: always
+    pull_policy: missing
 
   # ---- Kokoro Web Frontend ----
   kokoro-web:
@@ -193,9 +195,9 @@ services:
       - "traefik.http.routers.kokoro-web.entrypoints=websecure"
       - "traefik.http.routers.kokoro-web.tls=true"
       - "traefik.http.services.kokoro-web.loadbalancer.server.port=3000"
-    pull_policy: always
+    pull_policy: missing
 
-  # ---- ComfyUI (Fixed indentation and GPU config) ----
+  # ---- ComfyUI (GPU config) ----
   comfyui:
     image: ghcr.io/ai-dock/comfyui:latest-cuda
     container_name: comfyui
@@ -210,7 +212,6 @@ services:
       WEB_ENABLE_QUICKTUNNEL: "false"
       WEB_ENABLE_LOGIN: "false"
       WORKSPACE: "/workspace"
-      # GPU environment variables
       NVIDIA_VISIBLE_DEVICES: "0"
       CUDA_VISIBLE_DEVICES: "0"
       NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
@@ -222,7 +223,7 @@ services:
               count: 1
               capabilities: [gpu]
         limits:
-          memory: 10G
+          memory: 8G  # Reduced from 10G
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=demo"
@@ -230,7 +231,7 @@ services:
       - "traefik.http.routers.comfyui.entrypoints=websecure"
       - "traefik.http.routers.comfyui.tls=true"
       - "traefik.http.services.comfyui.loadbalancer.server.port=8188"
-    pull_policy: always
+    pull_policy: missing
 
   # ---- AUTOMATIC1111 (GPU) ----
   automatic1111:
@@ -258,8 +259,8 @@ services:
               count: 1
               capabilities: [gpu]
         limits:
-          memory: 8G
-    pull_policy: always
+          memory: 6G  # Reduced from 8G
+    pull_policy: missing
 
   # ---- Open WebUI (Updated with Kokoro TTS integration) ----
   open-webui:
@@ -295,7 +296,7 @@ services:
       - "traefik.http.routers.chat.entrypoints=websecure"
       - "traefik.http.routers.chat.tls=true"
       - "traefik.http.services.chat.loadbalancer.server.port=8080"
-    pull_policy: always
+    pull_policy: missing
 
   # ---- SIMPLE TTS Service (Only if you want it) ----
   simple-tts:
@@ -315,7 +316,7 @@ services:
       python simple-tts.py
       "
     profiles: ["avatar"]  # Only start with: docker-compose --profile avatar up
-    pull_policy: always
+    pull_policy: missing
 
   # ---- SIMPLE Avatar API (Updated with Kokoro support) ----
   avatar-api:
@@ -346,4 +347,4 @@ services:
       - ollama-gpu
       - kokoro-gpu
     profiles: ["avatar"]  # Only start with: docker-compose --profile avatar up
-    pull_policy: always
+    pull_policy: missing
