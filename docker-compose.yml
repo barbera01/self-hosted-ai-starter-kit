@@ -151,14 +151,14 @@ services:
               count: 1
               capabilities: [gpu]
         limits:
-          memory: 6G
-    shm_size: 2gb
+          memory: 4G
+    shm_size: 1gb
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8880/health", "||", "exit", "1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=demo"
@@ -268,12 +268,8 @@ services:
     networks: ['demo']
     restart: unless-stopped
     depends_on:
-      ollama-gpu:
-        condition: service_healthy
-      automatic1111:
-        condition: service_healthy
-      kokoro-gpu:
-        condition: service_healthy
+      - ollama-gpu
+      - kokoro-gpu
     environment:
       OLLAMA_BASE_URL: "http://ollama-gpu:11434"
       ENABLE_IMAGE_GENERATION: "true"
