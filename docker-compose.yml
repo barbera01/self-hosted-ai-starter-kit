@@ -16,6 +16,8 @@ volumes:
   kokoro_models:
   kokoro_cache:
   kokoro_web_cache:
+  # Whisper volumes
+  whisper_audio:
 
 networks:
   demo:
@@ -318,6 +320,12 @@ services:
       AUDIO_TTS_API_KEY: "not-needed"
       AUDIO_TTS_MODEL: "kokoro"
       AUDIO_TTS_VOICE: "af_heart"
+      # Whisper STT Integration
+      AUDIO_STT_ENABLED: "true"
+      AUDIO_STT_ENGINE: "whisper"
+      AUDIO_STT_MODEL: "whisper-1"
+      AUDIO_STT_OPENAI_API_BASE_URL: "http://faster-whisper:8000/v1"
+      AUDIO_STT_OPENAI_API_KEY: "not-needed"
       WEBUI_NAME: "AI Chat, Image & Voice Generation"
       DEFAULT_USER_ROLE: "user"
       ENABLE_COMMUNITY_SHARING: "false"
@@ -381,4 +389,35 @@ services:
       - ollama-gpu
       - kokoro-gpu
     profiles: ["avatar"]  # Only start with: docker-compose --profile avatar up
+    pull_policy: missing
+
+  # ---- Faster Whisper STT (Speech-to-Text) ----
+  faster-whisper:
+    image: fedirz/faster-whisper-server:latest-gpu
+    container_name: faster-whisper
+    networks: ['demo']
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - whisper_audio:/app/audio
+    environment:
+      - MODEL=Systran/faster-whisper-base
+      - DEVICE=cuda
+      - NVIDIA_VISIBLE_DEVICES=0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+        limits:
+          memory: 3G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     pull_policy: missing
