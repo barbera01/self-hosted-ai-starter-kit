@@ -47,7 +47,6 @@ services:
     networks: ['demo']
     container_name: n8n
     restart: unless-stopped
-    command: n8n start
     environment:
       - DB_TYPE=postgresdb
       - DB_POSTGRESDB_HOST=postgres
