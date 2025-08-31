@@ -42,6 +42,38 @@ services:
       retries: 10
     pull_policy: missing
 
+  postgres-setup:
+    image: postgres:16-alpine
+    networks: ['demo']
+    environment:
+      - PGPASSWORD=${POSTGRES_PASSWORD:-your_secure_admin_password_here}
+    command: >
+      sh -c "
+      until pg_isready -h postgres -U ${POSTGRES_USER:-n8n_admin}; do
+        echo 'Waiting for postgres...'; sleep 2;
+      done;
+      psql -h postgres -U ${POSTGRES_USER:-n8n_admin} -d ${POSTGRES_DB:-n8n} -c \"
+        DO \\\$$\\\$$
+        BEGIN
+            IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${POSTGRES_NON_ROOT_USER:-n8n}') THEN
+                CREATE USER ${POSTGRES_NON_ROOT_USER:-n8n} WITH PASSWORD '${POSTGRES_NON_ROOT_PASSWORD:-REDACTED_PASSWORD}';
+                GRANT ALL PRIVILEGES ON DATABASE ${POSTGRES_DB:-n8n} TO ${POSTGRES_NON_ROOT_USER:-n8n};
+                GRANT ALL PRIVILEGES ON SCHEMA public TO ${POSTGRES_NON_ROOT_USER:-n8n};
+                ALTER USER ${POSTGRES_NON_ROOT_USER:-n8n} CREATEDB;
+                RAISE NOTICE 'User ${POSTGRES_NON_ROOT_USER:-n8n} created successfully';
+            ELSE
+                RAISE NOTICE 'User ${POSTGRES_NON_ROOT_USER:-n8n} already exists';
+            END IF;
+        END
+        \\\$$\\\$$;
+      \"
+      "
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    pull_policy: missing
+
   n8n:
     image: n8nio/n8n:latest
     networks: ['demo']
@@ -74,6 +106,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      postgres-setup:
+        condition: service_completed_successfully
     pull_policy: missing
 
   ollama-gpu:
