@@ -28,15 +28,14 @@ services:
     networks: ['demo']
     restart: unless-stopped
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-n8n_admin}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-your_secure_admin_password_here}
-      - POSTGRES_DB=${POSTGRES_DB:-n8n}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_INITDB_ARGS="--auth-host=scram-sha-256"
     volumes:
       - postgres_storage:/var/lib/postgresql/data
-      - ./init-data.sh:/docker-entrypoint-initdb.d/init-data.sh:ro
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -h localhost -U ${POSTGRES_USER:-n8n_admin} -d ${POSTGRES_DB:-n8n}']
+      test: ['CMD-SHELL', 'pg_isready -h localhost -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
       interval: 5s
       timeout: 5s
       retries: 10
@@ -46,15 +45,25 @@ services:
     image: postgres:16-alpine
     networks: ['demo']
     environment:
-      - PGPASSWORD=${POSTGRES_PASSWORD:-your_secure_admin_password_here}
-      - POSTGRES_HOST=postgres
-      - POSTGRES_USER=${POSTGRES_USER:-n8n_admin}
-      - POSTGRES_DB=${POSTGRES_DB:-n8n}
-      - POSTGRES_NON_ROOT_USER=${POSTGRES_NON_ROOT_USER:-n8n}
-      - POSTGRES_NON_ROOT_PASSWORD=${POSTGRES_NON_ROOT_PASSWORD:-REDACTED_PASSWORD}
-    volumes:
-      - ./postgres-setup.sh:/setup.sh:ro
-    command: sh /setup.sh
+      - PGPASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_NON_ROOT_USER=${POSTGRES_NON_ROOT_USER}
+      - POSTGRES_NON_ROOT_PASSWORD=${POSTGRES_NON_ROOT_PASSWORD}
+    command: >
+      sh -c "
+      until pg_isready -h postgres -U $$POSTGRES_USER -d $$POSTGRES_DB; do
+        echo 'Waiting for postgres...'; sleep 2;
+      done;
+      echo 'Creating n8n user...';
+      psql -h postgres -U $$POSTGRES_USER -d $$POSTGRES_DB -c \"
+        CREATE USER $$POSTGRES_NON_ROOT_USER WITH PASSWORD '$$POSTGRES_NON_ROOT_PASSWORD';
+        GRANT ALL PRIVILEGES ON DATABASE $$POSTGRES_DB TO $$POSTGRES_NON_ROOT_USER;
+        GRANT ALL PRIVILEGES ON SCHEMA public TO $$POSTGRES_NON_ROOT_USER;
+        ALTER USER $$POSTGRES_NON_ROOT_USER CREATEDB;
+      \" || echo 'User may already exist';
+      echo 'Setup completed';
+      "
     depends_on:
       postgres:
         condition: service_healthy
