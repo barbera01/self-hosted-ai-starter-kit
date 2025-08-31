@@ -160,6 +160,28 @@ services:
       - qdrant_storage:/qdrant/storage
     pull_policy: missing
 
+  # ---- Qdrant Web UI Management Tool ----
+  qdrant-webui:
+    image: qdrant/qdrant-web-ui:latest
+    container_name: qdrant-webui
+    networks: ['demo']
+    restart: unless-stopped
+    ports:
+      - "6334:80"
+    environment:
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+    depends_on:
+      - qdrant
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=demo"
+      - "traefik.http.routers.qdrant-ui.rule=Host(`${QDRANT_UI_DOMAIN:-qdrant-ui.lab.home-cloud.uk}`)"
+      - "traefik.http.routers.qdrant-ui.entrypoints=websecure"
+      - "traefik.http.routers.qdrant-ui.tls=true"
+      - "traefik.http.services.qdrant-ui.loadbalancer.server.port=80"
+    pull_policy: missing
+
   # ---- Kokoro TTS Backend - Latest GPU version for CUDA 12.9 ----
   kokoro-gpu:
     # Use latest GPU version now that you have CUDA 12.9
