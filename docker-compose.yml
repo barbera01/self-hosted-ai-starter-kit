@@ -125,10 +125,10 @@ services:
               count: 1
               capabilities: [gpu]
         limits:
-          memory: 6G  # Reduced from 8G to share GPU with Kokoro
+          memory: 8G  # Restored for proper model loading
     environment:
       - NVIDIA_VISIBLE_DEVICES=0
-      - OLLAMA_GPU_MEMORY_FRACTION=0.3  # Reduced from 0.6 to share GPU with Kokoro
+      - OLLAMA_GPU_MEMORY_FRACTION=0.95  # Maximum allocation for gpt-oss:20b model
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 10s
