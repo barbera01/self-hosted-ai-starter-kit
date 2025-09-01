@@ -117,16 +117,13 @@ services:
       - "11434:11434"
     volumes:
       - ollama_storage:/root/.ollama
-
-    # ✅ Works in docker-compose (non-Swarm)
-    gpus: "all"            # or: gpus: all
-
-    # Helpful for tokenization / attention workspaces
-    shm_size: "1g"
-
-    # If you want a hard RAM cap in *compose* (optional):
-    # mem_limit: "24g"
-    # memswap_limit: "24g"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
     environment:
       # Give CUDA + KV cache some headroom on a 12 GB 3060
@@ -147,11 +144,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
-
-
-
-
-
 
   ollama-pull-llama-gpu:
     image: ollama/ollama:latest
