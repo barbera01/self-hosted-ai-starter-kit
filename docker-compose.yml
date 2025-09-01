@@ -125,10 +125,13 @@ services:
               count: 1
               capabilities: [gpu]
         limits:
-          memory: 8G  # Restored for proper model loading
+          memory: 16G  # Increased for better GPU utilization
     environment:
       - NVIDIA_VISIBLE_DEVICES=0
       - OLLAMA_GPU_MEMORY_FRACTION=0.95  # Maximum allocation for gpt-oss:20b model
+      - OLLAMA_NUM_PARALLEL=8  # Utilize multiple CPU cores for parallel processing
+      - OLLAMA_MAX_LOADED_MODELS=1  # Focus resources on single model
+      - OLLAMA_FLASH_ATTENTION=1  # Enable efficient attention computation
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 10s
