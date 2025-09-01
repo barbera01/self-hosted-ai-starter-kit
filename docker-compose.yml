@@ -117,27 +117,41 @@ services:
       - "11434:11434"
     volumes:
       - ollama_storage:/root/.ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-        limits:
-          memory: 16G  # Increased for better GPU utilization
+
+    # ✅ Works in docker-compose (non-Swarm)
+    gpus: "all"            # or: gpus: all
+
+    # Helpful for tokenization / attention workspaces
+    shm_size: "1g"
+
+    # If you want a hard RAM cap in *compose* (optional):
+    # mem_limit: "24g"
+    # memswap_limit: "24g"
+
     environment:
-      - NVIDIA_VISIBLE_DEVICES=0
-      - OLLAMA_GPU_MEMORY_FRACTION=0.95  # Maximum allocation for gpt-oss:20b model
-      - OLLAMA_NUM_PARALLEL=8  # Utilize multiple CPU cores for parallel processing
-      - OLLAMA_MAX_LOADED_MODELS=1  # Focus resources on single model
-      - OLLAMA_FLASH_ATTENTION=1  # Enable efficient attention computation
+      # Give CUDA + KV cache some headroom on a 12 GB 3060
+      - OLLAMA_GPU_MEMORY_FRACTION=0.88
+      # Concurrency: each stream needs its own KV cache in VRAM
+      - OLLAMA_NUM_PARALLEL=2
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KEEP_ALIVE=30m
+      # CPU-side threading hygiene
+      - OMP_NUM_THREADS=16          # set ~ your physical cores
+      - OPENBLAS_NUM_THREADS=1
+      # Expose if you hit it remotely
+      - OLLAMA_HOST=0.0.0.0:11434
+
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 10s
       timeout: 5s
       retries: 12
-    pull_policy: missing
+
+
+
+
+
 
   ollama-pull-llama-gpu:
     image: ollama/ollama:latest
