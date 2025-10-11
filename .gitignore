@@ -52,4 +52,13 @@ jspm_packages/
 *.swo
 .DS_Store
 *~
-
+# ComfyUI generated/large files
+comfyui_models/*
+!comfyui_models/.gitkeep
+comfyui_input/*
+!comfyui_input/.gitkeep
+comfyui_output/*
+!comfyui_output/.gitkeep
+comfyui_custom_nodes/*/checkpoints/*.pth
+comfyui_custom_nodes/*/checkpoints/*.pt
+comfyui_custom_nodes/*/checkpoints/*.safetensors
