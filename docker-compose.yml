@@ -274,7 +274,7 @@ services:
               count: 1
               capabilities: [gpu]
         limits:
-          memory: 8G
+          memory: 10G
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=demo"
