@@ -259,10 +259,10 @@ services:
     ports:
       - "8188:8188"
     volumes:
-      - ./comfyui_custom_nodes:/app/ComfyUI/custom_nodes
-      - ./comfyui_models:/app/ComfyUI/models
-      - ./comfyui_input:/app/ComfyUI/input
-      - ./comfyui_output:/app/ComfyUI/output
+      - /data/compose/61/comfyui_custom_nodes:/app/ComfyUI/custom_nodes
+      - /data/compose/61/comfyui_models:/app/ComfyUI/models
+      - /data/compose/61/comfyui_input:/app/ComfyUI/input
+      - /data/compose/61/comfyui_output:/app/ComfyUI/output
     environment:
       NVIDIA_VISIBLE_DEVICES: "0"
       CUDA_VISIBLE_DEVICES: "0"
