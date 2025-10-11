@@ -248,26 +248,24 @@ services:
       - "traefik.http.services.kokoro-web.loadbalancer.server.port=3000"
     pull_policy: missing
 
-  # ---- ComfyUI (GPU config) ----
+  # ---- ComfyUI (Official Build with GPU) ----
   comfyui:
-    image: ghcr.io/ai-dock/comfyui:latest-cuda
+    build:
+      context: ./comfyui_build
+      dockerfile: Dockerfile
     container_name: comfyui
     networks: ["demo"]
     restart: unless-stopped
     ports:
       - "8188:8188"
     volumes:
-      - comfy_workspace:/workspace
-      - ./comfyui_custom_nodes:/workspace/ComfyUI/custom_nodes
-      - ./comfyui_models:/workspace/ComfyUI/models
+      - ./comfyui_custom_nodes:/app/ComfyUI/custom_nodes
+      - ./comfyui_models:/app/ComfyUI/models
+      - ./comfyui_input:/app/ComfyUI/input
+      - ./comfyui_output:/app/ComfyUI/output
     environment:
-      WEB_ENABLE_AUTH: "false"
-      WEB_ENABLE_QUICKTUNNEL: "false"
-      WEB_ENABLE_LOGIN: "false"
-      WORKSPACE: "/workspace"
       NVIDIA_VISIBLE_DEVICES: "0"
       CUDA_VISIBLE_DEVICES: "0"
-      NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
     deploy:
       resources:
         reservations:
@@ -276,7 +274,7 @@ services:
               count: 1
               capabilities: [gpu]
         limits:
-          memory: 8G # Reduced from 10G
+          memory: 8G
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=demo"
@@ -285,7 +283,6 @@ services:
       - "traefik.http.routers.comfyui.tls=true"
       - "traefik.http.services.comfyui.loadbalancer.server.port=8188"
     pull_policy: missing
-
   # ---- AUTOMATIC1111 (GPU) ----
   automatic1111:
     image: ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda
