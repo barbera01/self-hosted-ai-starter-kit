@@ -252,7 +252,7 @@ services:
   comfyui:
     build:
       context: .
-      dockerfile: comfyui_build/Dockerfile
+      dockerfile: Dockerfile.comfyui
     container_name: comfyui
     networks: ["demo"]
     restart: unless-stopped
