@@ -27,7 +27,7 @@ networks:
 services:
   postgres:
     image: postgres:16-alpine
-    networks: ['demo']
+    networks: ["demo"]
     restart: unless-stopped
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
@@ -37,7 +37,11 @@ services:
     volumes:
       - postgres_storage:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -h localhost -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -h localhost -U ${POSTGRES_USER} -d ${POSTGRES_DB}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -45,7 +49,7 @@ services:
 
   postgres-setup:
     image: postgres:16-alpine
-    networks: ['demo']
+    networks: ["demo"]
     environment:
       - PGPASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_USER=${POSTGRES_USER}
@@ -74,7 +78,7 @@ services:
 
   n8n:
     image: n8nio/n8n:1.81.0
-    networks: ['demo']
+    networks: ["demo"]
     container_name: n8n
     restart: unless-stopped
     environment:
@@ -111,7 +115,7 @@ services:
   ollama-gpu:
     image: ollama/ollama:latest
     container_name: ollama-gpu
-    networks: ['demo']
+    networks: ["demo"]
     restart: unless-stopped
     ports:
       - "11434:11434"
@@ -134,7 +138,7 @@ services:
       - OLLAMA_FLASH_ATTENTION=1
       - OLLAMA_KEEP_ALIVE=30m
       # CPU-side threading hygiene
-      - OMP_NUM_THREADS=16          # set ~ your physical cores
+      - OMP_NUM_THREADS=16 # set ~ your physical cores
       - OPENBLAS_NUM_THREADS=1
       # Expose if you hit it remotely
       - OLLAMA_HOST=0.0.0.0:11434
@@ -148,11 +152,12 @@ services:
   ollama-pull-llama-gpu:
     image: ollama/ollama:latest
     container_name: ollama-pull-llama-gpu
-    networks: ['demo']
+    networks: ["demo"]
     volumes:
       - ollama_storage:/root/.ollama
     entrypoint: /bin/sh
-    command: ["-c", "sleep 3; OLLAMA_HOST=ollama-gpu:11434 ollama pull llama3.3"]
+    command:
+      ["-c", "sleep 3; OLLAMA_HOST=ollama-gpu:11434 ollama pull llama3.3"]
     depends_on:
       ollama-gpu:
         condition: service_healthy
@@ -161,7 +166,7 @@ services:
   qdrant:
     image: qdrant/qdrant
     container_name: qdrant
-    networks: ['demo']
+    networks: ["demo"]
     restart: unless-stopped
     ports:
       - "6333:6333"
@@ -174,7 +179,7 @@ services:
     # Use latest GPU version now that you have CUDA 12.9
     image: ghcr.io/remsky/kokoro-fastapi-gpu:latest
     container_name: kokoro-gpu
-    networks: ['demo']
+    networks: ["demo"]
     restart: unless-stopped
     ports:
       - "8880:8880"
@@ -201,7 +206,8 @@ services:
           memory: 4G
     shm_size: 2gb
     healthcheck:
-      test: ["CMD", "sh", "-c", "curl -f http://localhost:8880/health || exit 1"]
+      test:
+        ["CMD", "sh", "-c", "curl -f http://localhost:8880/health || exit 1"]
       interval: 30s
       timeout: 15s
       retries: 10
@@ -219,7 +225,7 @@ services:
   kokoro-web:
     image: ghcr.io/eduardolat/kokoro-web:latest
     container_name: kokoro-web
-    networks: ['demo']
+    networks: ["demo"]
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -246,12 +252,14 @@ services:
   comfyui:
     image: ghcr.io/ai-dock/comfyui:latest-cuda
     container_name: comfyui
-    networks: ['demo']
+    networks: ["demo"]
     restart: unless-stopped
     ports:
       - "8188:8188"
     volumes:
       - comfy_workspace:/workspace
+      - ./comfyui_custom_nodes:/workspace/ComfyUI/custom_nodes
+      - ./comfyui_models:/workspace/ComfyUI/models
     environment:
       WEB_ENABLE_AUTH: "false"
       WEB_ENABLE_QUICKTUNNEL: "false"
@@ -268,7 +276,7 @@ services:
               count: 1
               capabilities: [gpu]
         limits:
-          memory: 8G  # Reduced from 10G
+          memory: 8G # Reduced from 10G
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=demo"
@@ -282,7 +290,7 @@ services:
   automatic1111:
     image: ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda
     container_name: automatic1111
-    networks: ['demo']
+    networks: ["demo"]
     restart: unless-stopped
     environment:
       CLI_ARGS: "--listen --port 7860 --api --enable-insecure-extension-access --no-half-vae --medvram"
@@ -306,14 +314,14 @@ services:
               count: 1
               capabilities: [gpu]
         limits:
-          memory: 6G  # Reduced from 8G
+          memory: 6G # Reduced from 8G
     pull_policy: missing
 
   # ---- Open WebUI (Updated with Kokoro TTS integration) ----
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
     container_name: open-webui
-    networks: ['demo']
+    networks: ["demo"]
     restart: unless-stopped
     depends_on:
       - ollama-gpu
@@ -355,7 +363,7 @@ services:
   simple-tts:
     image: python:3.11-slim
     container_name: simple-tts
-    networks: ['demo']
+    networks: ["demo"]
     restart: unless-stopped
     ports:
       - "5002:5002"
@@ -368,14 +376,14 @@ services:
       pip install fastapi uvicorn pydantic gtts &&
       python simple-tts.py
       "
-    profiles: ["avatar"]  # Only start with: docker-compose --profile avatar up
+    profiles: ["avatar"] # Only start with: docker-compose --profile avatar up
     pull_policy: missing
 
   # ---- SIMPLE Avatar API (Updated with Kokoro support) ----
   avatar-api:
     image: python:3.11-slim
     container_name: avatar-api
-    networks: ['demo']
+    networks: ["demo"]
     restart: unless-stopped
     ports:
       - "8090:8090"
@@ -388,7 +396,7 @@ services:
     working_dir: /app
     environment:
       - OLLAMA_URL=http://ollama-gpu:11434
-      - TTS_URL=http://kokoro-gpu:8880/v1  # Use Kokoro instead of simple-tts
+      - TTS_URL=http://kokoro-gpu:8880/v1 # Use Kokoro instead of simple-tts
       - KOKORO_TTS_URL=http://kokoro-gpu:8880/v1
       - COMFYUI_URL=http://comfyui:8188
     command: >
@@ -399,14 +407,14 @@ services:
     depends_on:
       - ollama-gpu
       - kokoro-gpu
-    profiles: ["avatar"]  # Only start with: docker-compose --profile avatar up
+    profiles: ["avatar"] # Only start with: docker-compose --profile avatar up
     pull_policy: missing
 
   # ---- OpenAI Whisper STT (Speech-to-Text) ----
   whisper:
     image: onerahmet/openai-whisper-asr-webservice:latest-gpu
     container_name: whisper
-    networks: ['demo']
+    networks: ["demo"]
     restart: unless-stopped
     ports:
       - "9000:9000"
