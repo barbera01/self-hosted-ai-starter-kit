@@ -215,6 +215,7 @@ services:
       - NVIDIA_VISIBLE_DEVICES=0
       - CUDA_VISIBLE_DEVICES=0
       - PYTHONUNBUFFERED=1
+      - HF_TOKEN=${HUGGINGFACE_TOKEN:-}
     deploy:
       resources:
         reservations:
@@ -288,6 +289,7 @@ services:
     environment:
       NVIDIA_VISIBLE_DEVICES: "0"
       CUDA_VISIBLE_DEVICES: "0"
+      HF_TOKEN: ${HUGGINGFACE_TOKEN:-}
     deploy:
       resources:
         reservations:
@@ -323,6 +325,7 @@ services:
       CLI_ARGS: "--listen --port 7860 --api --enable-insecure-extension-access --no-half-vae --medvram"
       WEB_ENABLE_AUTH: "false"
       WEBUI_URL: ""
+      HF_TOKEN: ${HUGGINGFACE_TOKEN:-}
     ports:
       - "7860:7860"
     volumes:
@@ -465,6 +468,7 @@ services:
       - ASR_MODEL=base
       - ASR_ENGINE=openai_whisper
       - NVIDIA_VISIBLE_DEVICES=0
+      - HF_TOKEN=${HUGGINGFACE_TOKEN:-}
     deploy:
       resources:
         reservations:
