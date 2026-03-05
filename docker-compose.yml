@@ -359,8 +359,6 @@ services:
         condition: service_healthy
       kokoro-gpu:
         condition: service_healthy
-      whisper:
-        condition: service_healthy
     environment:
       OLLAMA_BASE_URL: "http://ollama-gpu:11434"
       ENABLE_IMAGE_GENERATION: "true"
