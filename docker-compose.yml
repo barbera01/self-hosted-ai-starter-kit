@@ -276,7 +276,7 @@ services:
       context: .
       dockerfile: Dockerfile.comfyui
     container_name: comfyui
-    networks: ["aistck"]
+    networks: ["aistack"]
     restart: unless-stopped
     logging: *default-logging
     ports:

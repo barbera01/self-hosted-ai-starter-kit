@@ -52,6 +52,9 @@ jspm_packages/
 *.swo
 .DS_Store
 *~
+
+# Claude Code CLI
+.claude/
 # ComfyUI generated/large files
 comfyui_models/*
 !comfyui_models/.gitkeep
