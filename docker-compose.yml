@@ -454,34 +454,34 @@ services:
     pull_policy: missing
 
   # ---- OpenAI Whisper STT (Speech-to-Text) ----
-  whisper:
-    image: onerahmet/openai-whisper-asr-webservice:v1.9.1-gpu
-    container_name: whisper
-    networks: ["aistack"]
-    restart: unless-stopped
-    logging: *default-logging
-    ports:
-      - "9000:9000"
-    volumes:
-      - whisper_audio:/app/audio
-    environment:
-      - ASR_MODEL=base
-      - ASR_ENGINE=openai_whisper
-      - NVIDIA_VISIBLE_DEVICES=0
-      - HF_TOKEN=${HUGGINGFACE_TOKEN:-}
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-        limits:
-          memory: 3G
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-    pull_policy: missing
+  # whisper:
+  #   image: onerahmet/openai-whisper-asr-webservice:v1.9.1-gpu
+  #   container_name: whisper
+  #   networks: ["aistack"]
+  #   restart: unless-stopped
+  #   logging: *default-logging
+  #   ports:
+  #     - "9000:9000"
+  #   volumes:
+  #     - whisper_audio:/app/audio
+  #   environment:
+  #     - ASR_MODEL=base
+  #     - ASR_ENGINE=openai_whisper
+  #     - NVIDIA_VISIBLE_DEVICES=0
+  #     - HF_TOKEN=${HUGGINGFACE_TOKEN:-}
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+  #       limits:
+  #         memory: 3G
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+  #     start_period: 60s
+  #   pull_policy: missing
