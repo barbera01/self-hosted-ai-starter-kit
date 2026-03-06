@@ -161,6 +161,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=aistack"
+      - "traefik.http.routers.ollama.rule=Host(`${OLLAMA_DOMAIN}`)"
+      - "traefik.http.routers.ollama.entrypoints=websecure"
+      - "traefik.http.routers.ollama.tls=true"
+      - "traefik.http.services.ollama.loadbalancer.server.port=11434"
 
   ollama-pull-llama-gpu:
     image: ollama/ollama:0.17.4
