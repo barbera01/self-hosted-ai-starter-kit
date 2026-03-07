@@ -25,6 +25,9 @@ store with an comprehensive API
 ✅ [**PostgreSQL**](https://www.postgresql.org/) -  Workhorse of the Data
 Engineering world, handles large amounts of data safely.
 
+✅ [**LiveTalking**](livetalking/QUICKSTART_AVATAR.md) - Virtual avatar/VTuber
+video generator for creating talking head videos (optional, requires profile)
+
 ### What you can build
 
 ⭐️ **AI Agents** for scheduling appointments
@@ -34,6 +37,8 @@ Engineering world, handles large amounts of data safely.
 ⭐️ **Smarter Slack Bots** for enhanced company communications and IT operations
 
 ⭐️ **Private Financial Document Analysis** at minimal cost
+
+⭐️ **Virtual Avatar Videos** for YouTube, social media, and presentations
 
 ## Installation
 

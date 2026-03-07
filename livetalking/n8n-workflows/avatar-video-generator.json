@@ -1,0 +1,198 @@
+{
+  "name": "Avatar Video Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Avatar Video Generator Workflow\n\nThis workflow creates virtual avatar videos from text scripts.\n\n**Inputs:**\n- Script text (manual or from external source)\n- Avatar ID\n- Voice selection\n\n**Process:**\n1. Generate audio from text (Kokoro TTS)\n2. Create lip-synced video (LiveTalking)\n3. Download and save video\n\n**Outputs:**\n- MP4 video file\n- Video URL for sharing",
+        "height": 464,
+        "width": 389
+      },
+      "id": "sticky-note-1",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [240, 140],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "script",
+              "value": "Hello everyone! Welcome to my channel. Today we're going to discuss the latest developments in AI technology."
+            },
+            {
+              "name": "avatar_id",
+              "value": "default"
+            },
+            {
+              "name": "voice",
+              "value": "af_heart"
+            },
+            {
+              "name": "resolution",
+              "value": "1280x720"
+            }
+          ]
+        }
+      },
+      "id": "manual-trigger",
+      "name": "Manual Input",
+      "type": "n8n-nodes-base.set",
+      "position": [460, 300],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "url": "http://livetalking:8010/generate",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{ $json.script }}"
+            },
+            {
+              "name": "avatar_id",
+              "value": "={{ $json.avatar_id }}"
+            },
+            {
+              "name": "model",
+              "value": "wav2lip"
+            },
+            {
+              "name": "voice",
+              "value": "={{ $json.voice }}"
+            },
+            {
+              "name": "resolution",
+              "value": "={{ $json.resolution }}"
+            },
+            {
+              "name": "fps",
+              "value": 25
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-request-generate",
+      "name": "Generate Video",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [680, 300],
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "seconds"
+      },
+      "id": "wait-1",
+      "name": "Wait",
+      "type": "n8n-nodes-base.wait",
+      "position": [900, 300],
+      "typeVersion": 1,
+      "webhookId": "wait-webhook-1"
+    },
+    {
+      "parameters": {
+        "url": "=http://livetalking:8010/job/{{ $json.job_id }}",
+        "method": "GET",
+        "options": {}
+      },
+      "id": "http-request-status",
+      "name": "Check Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1120, 300],
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.status }}",
+              "value2": "completed"
+            }
+          ]
+        }
+      },
+      "id": "if-completed",
+      "name": "Is Completed?",
+      "type": "n8n-nodes-base.if",
+      "position": [1340, 300],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "url": "=http://livetalking:8010/download/{{ $json.job_id }}",
+        "method": "GET",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "http-request-download",
+      "name": "Download Video",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1560, 200],
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "fileName": "=avatar_video_{{ $now.format('YYYY-MM-DD_HH-mm-ss') }}.mp4",
+        "dataPropertyName": "data",
+        "options": {}
+      },
+      "id": "write-file",
+      "name": "Save to Disk",
+      "type": "n8n-nodes-base.writeFile",
+      "position": [1780, 200],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {},
+      "id": "loop-back",
+      "name": "Loop Back",
+      "type": "n8n-nodes-base.noOp",
+      "position": [1560, 400],
+      "typeVersion": 1
+    }
+  ],
+  "connections": {
+    "Manual Input": {
+      "main": [[{ "node": "Generate Video", "type": "main", "index": 0 }]]
+    },
+    "Generate Video": {
+      "main": [[{ "node": "Wait", "type": "main", "index": 0 }]]
+    },
+    "Wait": {
+      "main": [[{ "node": "Check Status", "type": "main", "index": 0 }]]
+    },
+    "Check Status": {
+      "main": [[{ "node": "Is Completed?", "type": "main", "index": 0 }]]
+    },
+    "Is Completed?": {
+      "main": [
+        [{ "node": "Download Video", "type": "main", "index": 0 }],
+        [{ "node": "Loop Back", "type": "main", "index": 0 }]
+      ]
+    },
+    "Download Video": {
+      "main": [[{ "node": "Save to Disk", "type": "main", "index": 0 }]]
+    },
+    "Loop Back": {
+      "main": [[{ "node": "Wait", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2024-03-07T00:00:00.000Z",
+  "versionId": "1"
+}

@@ -11,6 +11,12 @@ volumes/
 n8n/backup/
 shared/
 
+# LiveTalking data
+livetalking-data/
+*.mp4
+*.avi
+*.mov
+
 # Logs
 logs/
 *.log
