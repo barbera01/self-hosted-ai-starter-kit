@@ -456,9 +456,9 @@ services:
     profiles: ["avatar"]
     pull_policy: missing
 
-##  ---- OpenAI Whisper STT (Speech-to-Text) ----
+  ##  ---- OpenAI Whisper STT (Speech-to-Text) ----
   whisper:
-    image: docker pull onerahmet/openai-whisper-asr-webservice:latest-gpu
+    image: onerahmet/openai-whisper-asr-webservice:latest-gpu
     container_name: whisper
     networks: ["aistack"]
     restart: unless-stopped
