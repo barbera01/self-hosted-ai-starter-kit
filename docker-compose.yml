@@ -532,12 +532,6 @@ services:
     depends_on:
       - kokoro-gpu
       - ollama-gpu
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8010/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 120s
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=aistack"
