@@ -187,6 +187,11 @@ your local n8n instance.
 
 ## Tips & tricks
 
+### Kokoro endpoints
+
+- Use `https://<KOKORO_WEB_DOMAIN>` for the Kokoro Web UI.
+- Use `https://<KOKORO_API_DOMAIN>/v1` for GPU-backed TTS API calls.
+
 ### Accessing local files
 
 The self-hosted AI starter kit will create a shared folder (by default,
