@@ -30,22 +30,23 @@ WORKDIR /app
 RUN git clone https://github.com/TMElyralab/MuseTalk.git . && \
     git checkout main
 
-# PyTorch 2.1.0 + CUDA 12.1 wheels
-# MuseTalk's MMLab deps (mmcv 2.0.1) only have pre-built wheels for torch2.1/cu121.
-# CUDA is forward-compatible so cu121 wheels run fine on a CUDA 12.4 GPU.
+# PyTorch 2.0.1 + CUDA 11.8 wheels.
+# Reason: mmcv 2.0.1 only has a pre-built cp310 wheel on the OpenMMLab CDN for
+# the cu118/torch2.0 combination.  CUDA is forward-compatible so cu118 wheels
+# run without issues on a CUDA 12.4 GPU.
 RUN pip install --no-cache-dir \
-    torch==2.1.0 \
-    torchvision==0.16.0 \
-    torchaudio==2.1.0 \
-    --index-url https://download.pytorch.org/whl/cu121
+    torch==2.0.1 \
+    torchvision==0.15.2 \
+    torchaudio==2.0.2 \
+    --index-url https://download.pytorch.org/whl/cu118
 
-# MMLab stack — install mmcv directly from the OpenMMLab wheel CDN instead of
-# using `mim install` which falls back to a slow/broken source build when no
-# pre-built wheel matches the active torch/CUDA combo.
+# MMLab stack — use the OpenMMLab CDN directly so we get the pre-built wheel
+# instead of triggering a slow/broken C++17 source compilation.
+# Verified: cu118/torch2.0 index contains mmcv-2.0.1-cp310-cp310-manylinux1_x86_64.whl
 RUN pip install --no-cache-dir openmim mmengine && \
     pip install --no-cache-dir \
         "mmcv==2.0.1" \
-        -f https://download.openmmlab.com/mmcv/dist/cu121/torch2.1/index.html && \
+        -f https://download.openmmlab.com/mmcv/dist/cu118/torch2.0/index.html && \
     pip install --no-cache-dir \
         "mmdet==3.1.0" \
         "mmpose==1.1.0"
@@ -73,8 +74,8 @@ RUN pip install --no-cache-dir \
     Pillow \
     pyyaml
 
-# Install remaining MuseTalk requirements (overlaps fine, tensorflow skipped)
-RUN grep -v -E "^tensorflow|^torch" requirements.txt \
+# Install remaining MuseTalk requirements (overlaps fine, tensorflow + torch skipped)
+RUN grep -v -E "^(tensorflow|torch)" requirements.txt \
     | pip install --no-cache-dir -r /dev/stdin || true
 
 # Directories
