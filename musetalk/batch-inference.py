@@ -351,7 +351,8 @@ async def _run_musetalk(job_id: str, audio_file: Path, request: VideoRequest):
 
     env = os.environ.copy()
     env["PYTHONPATH"] = "/app"
-    env["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+    # Note: PYTORCH_CUDA_ALLOC_CONF=expandable_segments is PyTorch ≥2.1 only.
+    # This container uses PyTorch 2.0.1 (required for mmcv cu118 wheel), so we omit it.
 
     # Free VRAM held by Ollama before launching GPU-heavy inference
     await _unload_ollama_models()
