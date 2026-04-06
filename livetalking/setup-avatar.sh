@@ -15,8 +15,12 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Check if running from correct directory
-if [ ! -f "docker-compose.yml" ]; then
-    echo -e "${RED}Error: Please run this script from the project root directory${NC}"
+if [ -f "docker-compose.yml" ]; then
+    :
+elif [ -f "../docker-compose.yml" ]; then
+    cd ..
+else
+    echo -e "${RED}Error: Please run this script from the project root or from the livetalking directory${NC}"
     exit 1
 fi
 
@@ -42,13 +46,13 @@ if [ ! -f "livetalking-data/models/wav2lip.pth" ]; then
     echo ""
     echo "Please download the wav2lip model:"
     echo ""
-    echo "Option 1 - Quark Cloud Drive:"
-    echo "  https://pan.quark.cn/s/83a750323ef0"
-    echo "  Download: wav2lip256.pth"
+    echo "Option 1 - Google Drive (Official Wav2Lip):"
+    echo "  https://drive.google.com/drive/folders/153HLrqlBNxzZcHi17PEvP09kkAfzRshM?usp=share_link"
+    echo "  Download: wav2lip.pth"
     echo ""
-    echo "Option 2 - Google Drive:"
-    echo "  https://drive.google.com/drive/folders/1FOC_MD6wdogyyX_7V1d4NDIO7P9NlSAJ"
-    echo "  Download: wav2lip256.pth"
+    echo "Option 2 - Quark Cloud Drive:"
+    echo "  https://pan.quark.cn/s/83a750323ef0"
+    echo "  Download: wav2lip256.pth (rename to wav2lip.pth)"
     echo ""
     echo "Then copy it to: ./livetalking-data/models/wav2lip.pth"
     echo ""

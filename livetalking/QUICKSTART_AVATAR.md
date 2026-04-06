@@ -14,18 +14,18 @@
 ```bash
 # Download wav2lip model from one of these sources:
 
-# Option A: Quark Cloud Drive (Recommended)
-# Visit: https://pan.quark.cn/s/83a750323ef0
-# Download: wav2lip256.pth
+# Option A: Google Drive (Official Wav2Lip)
+# Visit: https://drive.google.com/drive/folders/153HLrqlBNxzZcHi17PEvP09kkAfzRshM?usp=share_link
+# Download: wav2lip.pth
 
-# Option B: Google Drive
-# Visit: https://drive.google.com/drive/folders/1FOC_MD6wdogyyX_7V1d4NDIO7P9NlSAJ
+# Option B: Quark Cloud Drive
+# Visit: https://pan.quark.cn/s/83a750323ef0
 # Download: wav2lip256.pth
 
 # Create directory and move file
 mkdir -p livetalking-data/models
-# Move downloaded file to: livetalking-data/models/wav2lip.pth
-# (Rename from wav2lip256.pth to wav2lip.pth)
+# Save/move downloaded file to: livetalking-data/models/wav2lip.pth
+# (If you downloaded wav2lip256.pth, rename it to wav2lip.pth)
 ```
 
 ## Step 2: Add Avatar Image (One-time, ~2 minutes)
@@ -173,7 +173,7 @@ curl http://localhost:8010/download/abc-123 -o video.mp4
 ls -la livetalking-data/models/wav2lip.pth
 
 # If missing, download from:
-# https://pan.quark.cn/s/83a750323ef0
+# https://drive.google.com/drive/folders/153HLrqlBNxzZcHi17PEvP09kkAfzRshM?usp=share_link
 ```
 
 ### "Avatar not found"

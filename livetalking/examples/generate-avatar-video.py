@@ -15,10 +15,11 @@ import requests
 import time
 import sys
 import argparse
+import os
 from pathlib import Path
 
 # Configuration
-LIVETALKING_URL = "http://localhost:8010"
+LIVETALKING_URL = os.getenv("LIVETALKING_URL", "https://livetalking.lab.home-cloud.uk")
 
 
 def generate_video(
@@ -61,6 +62,7 @@ def generate_video(
 
     # Submit job
     print(f"🎬 Generating video...")
+    print(f"   Service URL: {LIVETALKING_URL}")
     print(f"   Avatar: {avatar_id}")
     print(f"   Voice: {voice}")
     print(f"   Resolution: {resolution}")
@@ -82,6 +84,10 @@ def generate_video(
         print()
         print("Make sure LiveTalking is running:")
         print("  docker compose --profile avatar up livetalking")
+        print("Or set LIVETALKING_URL for a remote host, for example:")
+        print(
+            '  LIVETALKING_URL=http://YOUR_SERVER_IP:8010 python livetalking/examples/generate-avatar-video.py "Hello!"'
+        )
         sys.exit(1)
 
     # Poll for completion
@@ -163,6 +169,9 @@ Examples:
   
   # From audio file
   python generate-avatar-video.py --audio speech.wav
+
+  # Use a remote LiveTalking server
+  LIVETALKING_URL=http://YOUR_SERVER_IP:8010 python generate-avatar-video.py "Hello!"
 
 Available voices:
   af_heart, af_bella, af_sarah (Female)

@@ -27,11 +27,12 @@ cp .env.example .env
 
 ### 4. Download the wav2lip model
 ```bash
-# Visit: https://pan.quark.cn/s/83a750323ef0
-# Download: wav2lip256.pth
+# Recommended: Google Drive
+# Visit: https://drive.google.com/drive/folders/1s4Sj-C2vJRRkEwZhVMRPRPJWqJNLwHWy
+# Download: wav2lip.pth
 # Then run:
 mkdir -p livetalking-data/models
-# Move the downloaded file to: livetalking-data/models/wav2lip.pth
+# Move/save the downloaded file to: livetalking-data/models/wav2lip.pth
 ```
 
 ### 5. Add your avatar image
@@ -97,6 +98,7 @@ docker compose logs -f livetalking
 ```bash
 ls -la livetalking-data/models/wav2lip.pth
 # If missing, download from: https://pan.quark.cn/s/83a750323ef0
+# Or: https://drive.google.com/drive/folders/1s4Sj-C2vJRRkEwZhVMRPRPJWqJNLwHWy
 ```
 
 **Avatar not found?**
