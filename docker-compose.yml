@@ -34,6 +34,11 @@ volumes:
   livetalking_avatars:
   livetalking_output:
   livetalking_input:
+  # MuseTalk volumes
+  musetalk_models:
+  musetalk_avatars:
+  musetalk_output:
+  musetalk_input:
 
 networks:
   aistack:
@@ -548,4 +553,50 @@ services:
       - "traefik.http.routers.livetalking.entrypoints=websecure"
       - "traefik.http.routers.livetalking.tls=true"
       - "traefik.http.services.livetalking.loadbalancer.server.port=8010"
+    profiles: ["avatar"]
+
+  # ---- MuseTalk Avatar Video Generator (v1.5) ----
+  musetalk:
+    build:
+      context: ./musetalk
+      dockerfile: Dockerfile
+    container_name: musetalk
+    networks: ["aistack"]
+    restart: unless-stopped
+    logging: *default-logging
+    ports:
+      - "8011:8011"
+    volumes:
+      - musetalk_models:/app/models
+      - musetalk_avatars:/app/data/avatars
+      - musetalk_output:/app/output_jobs
+      - musetalk_input:/app/input
+      - ./shared:/app/shared
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=0
+      - CUDA_VISIBLE_DEVICES=0
+      - KOKORO_TTS_URL=http://kokoro-gpu:8880/v1
+      - OLLAMA_URL=http://ollama-gpu:11434
+      - HF_TOKEN=${HUGGINGFACE_TOKEN:-}
+      - PYTHONUNBUFFERED=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+        limits:
+          memory: 10G
+    shm_size: 4gb
+    depends_on:
+      - kokoro-gpu
+      - ollama-gpu
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=aistack"
+      - "traefik.http.routers.musetalk.rule=Host(`${MUSETALK_DOMAIN}`)"
+      - "traefik.http.routers.musetalk.entrypoints=websecure"
+      - "traefik.http.routers.musetalk.tls=true"
+      - "traefik.http.services.musetalk.loadbalancer.server.port=8011"
     profiles: ["avatar"]
