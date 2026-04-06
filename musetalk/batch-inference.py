@@ -74,6 +74,7 @@ class JobStatus(BaseModel):
     job_id: str
     status: str  # pending | processing | completed | failed
     progress: int  # 0-100
+    avatar_id: Optional[str] = None  # stored so download endpoint can find the file
     video_url: Optional[str] = None
     error: Optional[str] = None
 
@@ -106,7 +107,9 @@ async def list_models():
 @app.post("/generate")
 async def generate_video(request: VideoRequest):
     job_id = str(uuid.uuid4())
-    jobs[job_id] = JobStatus(job_id=job_id, status="pending", progress=0)
+    jobs[job_id] = JobStatus(
+        job_id=job_id, status="pending", progress=0, avatar_id=request.avatar_id
+    )
     asyncio.create_task(_process_job(job_id, request))
     return {"job_id": job_id, "status": "pending"}
 
@@ -125,8 +128,9 @@ async def download_video(job_id: str):
     job = jobs[job_id]
     if job.status != "completed":
         raise HTTPException(status_code=400, detail=f"Job status: {job.status}")
-    # MuseTalk writes output.mp4 inside the job sub-dir; we expose it directly
-    video_path = OUTPUT_DIR / job_id / "output.mp4"
+    # Video lives at OUTPUT_DIR / avatar_id / job_id / output.mp4
+    avatar_id = job.avatar_id or job_id  # fallback for old jobs without avatar_id
+    video_path = OUTPUT_DIR / avatar_id / job_id / "output.mp4"
     if not video_path.exists():
         raise HTTPException(status_code=404, detail="Video file not found")
     return FileResponse(
@@ -155,7 +159,9 @@ async def delete_job(job_id: str):
         raise HTTPException(status_code=404, detail="Job not found")
     import shutil
 
-    job_dir = OUTPUT_DIR / job_id
+    job = jobs[job_id]
+    avatar_id = job.avatar_id or job_id
+    job_dir = OUTPUT_DIR / avatar_id / job_id
     if job_dir.exists():
         shutil.rmtree(job_dir)
     del jobs[job_id]
@@ -178,8 +184,8 @@ async def _process_job(job_id: str, request: VideoRequest):
         await _run_musetalk(job_id, audio_file, request)
         jobs[job_id].progress = 90
 
-        # 3. Verify output exists
-        video_path = OUTPUT_DIR / job_id / "output.mp4"
+        # 3. Verify output exists at the correct avatar_id/job_id path
+        video_path = OUTPUT_DIR / request.avatar_id / job_id / "output.mp4"
         if not video_path.exists():
             raise RuntimeError("MuseTalk did not produce output.mp4")
 
