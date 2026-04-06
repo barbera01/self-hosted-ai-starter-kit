@@ -67,7 +67,7 @@ class VideoRequest(BaseModel):
     speed: Optional[float] = None
     resolution: str = "1280x720"
     fps: int = 25
-    batch_size: int = 8
+    batch_size: int = 4
 
 
 class JobStatus(BaseModel):
@@ -245,6 +245,50 @@ async def _get_audio(job_id: str, request: VideoRequest) -> Path:
 # ── MuseTalk inference ────────────────────────────────────────────────────────
 
 
+async def _unload_ollama_models():
+    """
+    Ask Ollama to evict all loaded models from VRAM before we run inference.
+    This is important on RTX 3060 (12 GB) because Kokoro + Whisper + an active
+    Ollama model can already consume ~5.8 GB, leaving MuseTalk starved.
+    Failures are non-fatal — we log and continue.
+    """
+    ollama_url = os.getenv("OLLAMA_URL", "http://ollama-gpu:11434")
+    try:
+        import aiohttp
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{ollama_url}/api/ps") as resp:
+                if resp.status != 200:
+                    print(
+                        f"[musetalk] Ollama /api/ps returned {resp.status} — skipping unload"
+                    )
+                    return
+                data = await resp.json()
+                loaded = [
+                    m.get("name", "") for m in data.get("models", []) if m.get("name")
+                ]
+
+        if not loaded:
+            print("[musetalk] No Ollama models loaded — nothing to unload")
+            return
+
+        async with aiohttp.ClientSession() as session:
+            for name in loaded:
+                try:
+                    await session.post(
+                        f"{ollama_url}/api/generate",
+                        json={"model": name, "keep_alive": 0},
+                    )
+                    print(f"[musetalk] Unloaded Ollama model: {name}")
+                except Exception as e:
+                    print(f"[musetalk] Failed to unload {name}: {e}")
+
+    except Exception as e:
+        print(
+            f"[musetalk] Could not reach Ollama ({ollama_url}): {e} — continuing anyway"
+        )
+
+
 async def _run_musetalk(job_id: str, audio_file: Path, request: VideoRequest):
     """
     Build the inference YAML config and call MuseTalk's scripts.inference module.
@@ -301,6 +345,10 @@ async def _run_musetalk(job_id: str, audio_file: Path, request: VideoRequest):
 
     env = os.environ.copy()
     env["PYTHONPATH"] = "/app"
+    env["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+
+    # Free VRAM held by Ollama before launching GPU-heavy inference
+    await _unload_ollama_models()
 
     process = await asyncio.create_subprocess_exec(
         *cmd,
