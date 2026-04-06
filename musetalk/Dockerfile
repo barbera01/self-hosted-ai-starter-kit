@@ -30,21 +30,27 @@ WORKDIR /app
 RUN git clone https://github.com/TMElyralab/MuseTalk.git . && \
     git checkout main
 
-# PyTorch 2.5.0 + CUDA 12.4 (matches rest of stack)
+# PyTorch 2.1.0 + CUDA 12.1 wheels
+# MuseTalk's MMLab deps (mmcv 2.0.1) only have pre-built wheels for torch2.1/cu121.
+# CUDA is forward-compatible so cu121 wheels run fine on a CUDA 12.4 GPU.
 RUN pip install --no-cache-dir \
-    torch==2.5.0 \
-    torchvision==0.20.0 \
-    torchaudio==2.5.0 \
-    --index-url https://download.pytorch.org/whl/cu124
+    torch==2.1.0 \
+    torchvision==0.16.0 \
+    torchaudio==2.1.0 \
+    --index-url https://download.pytorch.org/whl/cu121
 
-# MMLab stack required by MuseTalk pose estimation
-RUN pip install --no-cache-dir openmim && \
-    mim install mmengine && \
-    mim install "mmcv==2.0.1" && \
-    mim install "mmdet==3.1.0" && \
-    mim install "mmpose==1.1.0"
+# MMLab stack — install mmcv directly from the OpenMMLab wheel CDN instead of
+# using `mim install` which falls back to a slow/broken source build when no
+# pre-built wheel matches the active torch/CUDA combo.
+RUN pip install --no-cache-dir openmim mmengine && \
+    pip install --no-cache-dir \
+        "mmcv==2.0.1" \
+        -f https://download.openmmlab.com/mmcv/dist/cu121/torch2.1/index.html && \
+    pip install --no-cache-dir \
+        "mmdet==3.1.0" \
+        "mmpose==1.1.0"
 
-# MuseTalk Python deps (skip tensorflow — not needed for inference)
+# MuseTalk Python deps (tensorflow skipped — not needed for inference)
 RUN pip install --no-cache-dir \
     diffusers==0.27.2 \
     accelerate \
@@ -53,7 +59,7 @@ RUN pip install --no-cache-dir \
     einops \
     huggingface_hub \
     gdown \
-    imageio[ffmpeg] \
+    "imageio[ffmpeg]" \
     librosa \
     soundfile \
     fastapi \
@@ -64,10 +70,12 @@ RUN pip install --no-cache-dir \
     pydantic \
     tqdm \
     opencv-python-headless \
-    Pillow
+    Pillow \
+    pyyaml
 
-# Install remaining MuseTalk requirements (may partially overlap above)
-RUN pip install --no-cache-dir -r requirements.txt || true
+# Install remaining MuseTalk requirements (overlaps fine, tensorflow skipped)
+RUN grep -v -E "^tensorflow|^torch" requirements.txt \
+    | pip install --no-cache-dir -r /dev/stdin || true
 
 # Directories
 RUN mkdir -p /app/models \
