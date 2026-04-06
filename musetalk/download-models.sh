@@ -79,9 +79,11 @@ fi
 
 # ------------------------------------------------------------------
 # 6. Stable Diffusion VAE (sd-vae-ft-mse)
+# MuseTalk prefers .safetensors; .bin downloaded as fallback
 # ------------------------------------------------------------------
-hf_dl "stabilityai/sd-vae-ft-mse" "config.json"                 "$MODELS/sd-vae/config.json"
-hf_dl "stabilityai/sd-vae-ft-mse" "diffusion_pytorch_model.bin" "$MODELS/sd-vae/diffusion_pytorch_model.bin"
+hf_dl "stabilityai/sd-vae-ft-mse" "config.json"                          "$MODELS/sd-vae/config.json"
+hf_dl "stabilityai/sd-vae-ft-mse" "diffusion_pytorch_model.safetensors"  "$MODELS/sd-vae/diffusion_pytorch_model.safetensors"
+hf_dl "stabilityai/sd-vae-ft-mse" "diffusion_pytorch_model.bin"          "$MODELS/sd-vae/diffusion_pytorch_model.bin"
 
 # ------------------------------------------------------------------
 # 7. Whisper tiny
