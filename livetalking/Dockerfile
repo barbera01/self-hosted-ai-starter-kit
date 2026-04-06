@@ -52,6 +52,7 @@ RUN mkdir -p /app/models \
 
 # Copy our custom batch inference API
 COPY batch-inference.py /app/
+COPY wav2lip_batch_infer.py /app/
 COPY requirements.txt /app/requirements-custom.txt
 COPY download-models.sh /app/
 

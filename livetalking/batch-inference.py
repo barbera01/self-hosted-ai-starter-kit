@@ -26,6 +26,15 @@ MODELS_DIR = Path("/app/models")
 AVATARS_DIR = Path("/app/data/avatars")
 SHARED_DIR = Path("/app/shared")
 
+# Per-avatar Kokoro TTS voice configurations.
+# voice follows Kokoro's weighted-blend syntax: "voice1(w)+voice2(w)+..."
+# Override at request time by passing voice/speed fields explicitly.
+AVATAR_VOICE_CONFIGS: Dict[str, Dict] = {
+    "rowan": {"voice": "bm_daniel(7)+bm_lewis(3)", "speed": 0.95},
+    "eve": {"voice": "bf_lily(7)+bf_emma(2)+af_bella(1)+af_heart(1)", "speed": 0.95},
+}
+DEFAULT_VOICE_CONFIG: Dict = {"voice": "af_heart", "speed": 1.0}
+
 # Ensure directories exist
 for directory in [OUTPUT_DIR, INPUT_DIR, MODELS_DIR, AVATARS_DIR, SHARED_DIR]:
     directory.mkdir(parents=True, exist_ok=True)
@@ -38,7 +47,9 @@ class VideoRequest(BaseModel):
     audio_url: Optional[str] = None
     avatar_id: str = "default"
     model: str = "wav2lip"  # wav2lip, musetalk, ernerf
-    voice: str = "af_heart"  # Kokoro voice
+    # voice / speed: leave as None to use the per-avatar default from AVATAR_VOICE_CONFIGS
+    voice: Optional[str] = None
+    speed: Optional[float] = None
     background: Optional[str] = None
     resolution: str = "1280x720"  # 1920x1080, 1280x720, 854x480
     fps: int = 25
@@ -236,7 +247,13 @@ async def get_audio(job_id: str, request: VideoRequest) -> Path:
                         await f.write(await resp.read())
 
     elif request.text:
-        # Generate audio via Kokoro TTS
+        # Resolve voice + speed: explicit request fields > avatar config > global default
+        av_cfg = AVATAR_VOICE_CONFIGS.get(request.avatar_id, DEFAULT_VOICE_CONFIG)
+        voice = request.voice if request.voice is not None else av_cfg["voice"]
+        speed = request.speed if request.speed is not None else av_cfg["speed"]
+
+        print(f"[tts] avatar={request.avatar_id} voice={voice!r} speed={speed}")
+
         tts_url = os.getenv("KOKORO_TTS_URL", "http://kokoro-gpu:8880/v1")
 
         import aiohttp
@@ -247,7 +264,8 @@ async def get_audio(job_id: str, request: VideoRequest) -> Path:
                 json={
                     "model": "kokoro",
                     "input": request.text,
-                    "voice": request.voice,
+                    "voice": voice,
+                    "speed": speed,
                     "response_format": "wav",
                 },
             ) as resp:
@@ -262,39 +280,125 @@ async def get_audio(job_id: str, request: VideoRequest) -> Path:
     return audio_path
 
 
+async def preprocess_avatar_if_needed(avatar_id: str) -> None:
+    """
+    One-time preprocessing: convert avatar.png → short video → run genavatar.py
+    to produce full_imgs/, face_imgs/, coords.pkl inside the avatar directory.
+    Safe to call every time — skips work if already done.
+    """
+    avatar_path = AVATARS_DIR / avatar_id
+    coords_path = avatar_path / "coords.pkl"
+
+    if coords_path.exists():
+        print(f"[preprocess] Avatar '{avatar_id}' already preprocessed, skipping.")
+        return
+
+    # Find source image (png or jpg)
+    source_img: Optional[Path] = None
+    for ext in ["avatar.png", "avatar.jpg", "avatar.jpeg"]:
+        candidate = avatar_path / ext
+        if candidate.exists():
+            source_img = candidate
+            break
+    if source_img is None:
+        raise FileNotFoundError(
+            f"No avatar image found in {avatar_path}. "
+            "Expected avatar.png or avatar.jpg."
+        )
+
+    print(f"[preprocess] Preprocessing avatar '{avatar_id}' from {source_img} …")
+
+    # Step 1 — convert static image → 5-second looping video
+    temp_video = INPUT_DIR / f"{avatar_id}_source.mp4"
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-loop",
+        "1",
+        "-i",
+        str(source_img),
+        "-c:v",
+        "libx264",
+        "-t",
+        "5",
+        "-pix_fmt",
+        "yuv420p",
+        "-vf",
+        "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+        str(temp_video),
+    ]
+    proc = await asyncio.create_subprocess_exec(
+        *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    )
+    _, stderr = await proc.communicate()
+    if proc.returncode != 0:
+        raise RuntimeError(f"ffmpeg image→video failed: {stderr.decode()}")
+
+    # Step 2 — run genavatar.py to extract face crops + coords
+    cmd = [
+        "python",
+        "/app/avatars/wav2lip/genavatar.py",
+        "--avatar_id",
+        avatar_id,
+        "--video_path",
+        str(temp_video),
+    ]
+    env = os.environ.copy()
+    env["PYTHONPATH"] = "/app"
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        cwd="/app",
+        env=env,
+    )
+    stdout, stderr = await proc.communicate()
+    print(stdout.decode())
+    if proc.returncode != 0:
+        raise RuntimeError(f"genavatar.py failed: {stderr.decode()}")
+
+    # Clean up temp video
+    if temp_video.exists():
+        temp_video.unlink()
+
+    print(f"[preprocess] Avatar '{avatar_id}' ready ✓")
+
+
 async def run_livetalking_inference(
     job_id: str, audio_file: Path, avatar_id: str, model: str
 ) -> Path:
     """Run LiveTalking inference to generate lip-synced video"""
     output_file = OUTPUT_DIR / f"{job_id}_raw.mp4"
-    avatar_path = AVATARS_DIR / avatar_id
 
-    # Build command based on model type
+    # Ensure avatar is preprocessed (no-op on subsequent runs)
+    await preprocess_avatar_if_needed(avatar_id)
+
     if model == "wav2lip":
         cmd = [
             "python",
-            "inference.py",
-            "--driven_audio",
+            "/app/wav2lip_batch_infer.py",
+            "--avatar_id",
+            avatar_id,
+            "--audio",
             str(audio_file),
-            "--source_image",
-            str(avatar_path / "avatar.jpg"),  # or avatar.mp4
-            "--result_dir",
-            str(OUTPUT_DIR),
-            "--checkpoint_dir",
-            str(MODELS_DIR),
             "--output",
             str(output_file),
+            "--model",
+            str(MODELS_DIR / "Wav2Lip-SD-GAN.pt"),
+            "--avatars_dir",
+            str(AVATARS_DIR),
         ]
     else:
-        # Add support for other models (musetalk, ernerf)
         raise NotImplementedError(f"Model {model} not yet implemented")
 
-    # Run inference
     process = await asyncio.create_subprocess_exec(
-        *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        cwd="/app",
     )
-
     stdout, stderr = await process.communicate()
+    print(stdout.decode())
 
     if process.returncode != 0:
         raise Exception(f"Inference failed: {stderr.decode()}")
