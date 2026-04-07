@@ -142,13 +142,22 @@ async def download_video(job_id: str):
 async def upload_avatar(file: UploadFile = File(...), avatar_id: str = Form(...)):
     avatar_path = AVATARS_DIR / avatar_id
     avatar_path.mkdir(parents=True, exist_ok=True)
-    ext = Path(file.filename).suffix
+    ext = Path(file.filename).suffix.lower()
     save_path = avatar_path / f"avatar{ext}"
     async with aiofiles.open(save_path, "wb") as f:
         await f.write(await file.read())
+
+    # Invalidate cached face coordinates — they are source-specific.
+    # A pkl from a single-frame image is incompatible with a multi-frame video and vice versa.
+    coords_pkl = OUTPUT_DIR / avatar_id / "avatar.pkl"
+    if coords_pkl.exists():
+        coords_pkl.unlink()
+        print(f"[upload-avatar] Invalidated stale coords cache: {coords_pkl}")
+
     return {
         "avatar_id": avatar_id,
         "file": str(save_path),
+        "coords_cache_cleared": coords_pkl.exists() is False,
         "message": "Avatar uploaded successfully",
     }
 
@@ -304,7 +313,7 @@ async def _run_musetalk(job_id: str, audio_file: Path, request: VideoRequest):
       /app/output_jobs/{avatar_id}/avatar.pkl          ← reused on next run
     """
     avatar_id = request.avatar_id
-    avatar_img = _find_avatar_image(avatar_id)
+    avatar_img = _find_avatar_source(avatar_id)
     # coords are stored one level above the job dir, keyed by avatar_id
     avatar_result_dir = OUTPUT_DIR / avatar_id / job_id
     avatar_result_dir.mkdir(parents=True, exist_ok=True)
@@ -393,14 +402,20 @@ async def _run_musetalk(job_id: str, audio_file: Path, request: VideoRequest):
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
-def _find_avatar_image(avatar_id: str) -> Path:
+def _find_avatar_source(avatar_id: str) -> Path:
+    """
+    Return the avatar source file for this avatar_id.
+    MP4 video is preferred over static images — MuseTalk handles both natively.
+    Priority: avatar.mp4 > avatar.png > avatar.jpg > avatar.jpeg
+    """
     avatar_path = AVATARS_DIR / avatar_id
-    for ext in ["avatar.png", "avatar.jpg", "avatar.jpeg"]:
-        candidate = avatar_path / ext
+    for name in ["avatar.mp4", "avatar.png", "avatar.jpg", "avatar.jpeg"]:
+        candidate = avatar_path / name
         if candidate.exists():
             return candidate
     raise FileNotFoundError(
-        f"No avatar image found in {avatar_path}. Upload avatar.png first via /upload-avatar."
+        f"No avatar source found in {avatar_path}. "
+        f"Upload avatar.mp4 (or avatar.png) via /upload-avatar."
     )
 
 
