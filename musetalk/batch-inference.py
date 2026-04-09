@@ -42,8 +42,8 @@ for d in [MODELS_DIR, AVATARS_DIR, OUTPUT_DIR, INPUT_DIR, SHARED_DIR]:
 # ── Per-avatar Kokoro TTS voice configs ──────────────────────────────────────
 # voice follows Kokoro's weighted-blend syntax: "voice1(w)+voice2(w)+..."
 AVATAR_VOICE_CONFIGS: Dict[str, Dict] = {
-    "rowan": {"voice": "bm_daniel(7)+bm_lewis(3)", "speed": 1.5},
-    "eve": {"voice": "bf_lily(7)+bf_emma(2)+af_bella(1)+af_heart(1)", "speed": 1.5},
+    "rowan": {"voice": "bm_daniel(7)+bm_lewis(3)", "speed": 1.05},
+    "eve": {"voice": "bf_lily(7)+bf_emma(2)+af_bella(1)+af_heart(1)", "speed": 1.05},
     "office-goblin": {"voice": "bf_v0isabella", "speed": 1.4},
 }
 DEFAULT_VOICE_CONFIG: Dict = {"voice": "af_heart", "speed": 1.0}
@@ -315,7 +315,8 @@ async def _unload_ollama_models():
                 if resp.status != 200:
                     print(
                         f"[musetalk] Ollama /api/ps returned {
-                            resp.status} — skipping unload"
+                            resp.status
+                        } — skipping unload"
                     )
                     return
                 data = await resp.json()
@@ -411,7 +412,8 @@ async def _run_musetalk(job_id: str, audio_file: Path, request: VideoRequest):
     else:
         print(
             f"[musetalk] First run for '{
-                avatar_id}' — computing face coords (will be cached)"
+                avatar_id
+            }' — computing face coords (will be cached)"
         )
 
     env = os.environ.copy()
