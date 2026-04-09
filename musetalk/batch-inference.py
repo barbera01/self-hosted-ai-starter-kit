@@ -43,7 +43,7 @@ for d in [MODELS_DIR, AVATARS_DIR, OUTPUT_DIR, INPUT_DIR, SHARED_DIR]:
 AVATAR_VOICE_CONFIGS: Dict[str, Dict] = {
     "rowan": {"voice": "bm_daniel(7)+bm_lewis(3)", "speed": 0.95},
     "eve": {"voice": "bf_lily(7)+bf_emma(2)+af_bella(1)+af_heart(1)", "speed": 0.95},
-    "office-goblin": {"voice": "bf_isabella", "speed": 1.4},
+    "office-goblin": {"voice": "bf_v0isabella", "speed": 1.4},
 }
 DEFAULT_VOICE_CONFIG: Dict = {"voice": "af_heart", "speed": 1.0}
 
