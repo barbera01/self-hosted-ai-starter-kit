@@ -150,7 +150,13 @@ curl -X POST http://172.16.106.81:8011/generate \
     "speed": 1.0,
     "resolution": "1280x720",
     "fps": 25,
-    "batch_size": 4
+    "batch_size": 8,
+    "extra_margin": 12,
+    "parsing_mode": "jaw",
+    "left_cheek_width": 100,
+    "right_cheek_width": 100,
+    "audio_padding_left": 2,
+    "audio_padding_right": 2
   }'
 ```
 
@@ -163,7 +169,50 @@ curl -X POST http://172.16.106.81:8011/generate \
 | `speed` | float | per-avatar | Speech speed (1.0 = normal) |
 | `resolution` | string | `"1280x720"` | Output resolution |
 | `fps` | int | `25` | Frames per second |
-| `batch_size` | int | `4` | Processing batch size |
+| `batch_size` | int | `8` | Processing batch size (higher = faster, more VRAM) |
+| `extra_margin` | int | `12` | Extra pixels below chin for jaw/neck blending |
+| `parsing_mode` | string | `"jaw"` | Face blending mode (`jaw` or `face`) |
+| `left_cheek_width` | int | `100` | Left cheek blending width (higher = smoother) |
+| `right_cheek_width` | int | `100` | Right cheek blending width (higher = smoother) |
+| `audio_padding_left` | int | `2` | Left audio context frames for lip-sync |
+| `audio_padding_right` | int | `2` | Right audio context frames for lip-sync |
+
+### Quality Presets
+
+#### Standard Quality (Default)
+```json
+{
+  "batch_size": 8,
+  "extra_margin": 12,
+  "parsing_mode": "jaw",
+  "left_cheek_width": 100,
+  "right_cheek_width": 100
+}
+```
+
+#### High Quality (Smoother blending, slower)
+```json
+{
+  "batch_size": 4,
+  "extra_margin": 15,
+  "parsing_mode": "jaw",
+  "left_cheek_width": 120,
+  "right_cheek_width": 120,
+  "audio_padding_left": 3,
+  "audio_padding_right": 3
+}
+```
+
+#### Fast Processing (Lower quality, faster)
+```json
+{
+  "batch_size": 16,
+  "extra_margin": 10,
+  "parsing_mode": "jaw",
+  "left_cheek_width": 90,
+  "right_cheek_width": 90
+}
+```
 
 ---
 

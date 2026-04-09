@@ -68,7 +68,18 @@ class VideoRequest(BaseModel):
     speed: Optional[float] = None
     resolution: str = "1280x720"
     fps: int = 25
-    batch_size: int = 4
+    batch_size: int = 8  # Increased default for better GPU utilization
+    # ── Quality parameters ────────────────────────────────────────────────────
+    # extra_margin: Additional pixels below chin for better jaw/neck blending
+    extra_margin: int = 12
+    # parsing_mode: Face blending mode - "jaw" (default) focuses on jaw area
+    parsing_mode: str = "jaw"
+    # cheek_width: Width of cheek blending region (higher = smoother edges)
+    left_cheek_width: int = 100
+    right_cheek_width: int = 100
+    # audio_padding: Frames of audio context for smoother lip-sync transitions
+    audio_padding_left: int = 2
+    audio_padding_right: int = 2
 
 
 class JobStatus(BaseModel):
@@ -372,6 +383,19 @@ async def _run_musetalk(job_id: str, audio_file: Path, request: VideoRequest):
         str(request.fps),
         "--use_float16",
         "--saved_coord",  # always save coords for reuse
+        # ── Quality parameters ────────────────────────────────────────────────
+        "--extra_margin",
+        str(request.extra_margin),
+        "--parsing_mode",
+        request.parsing_mode,
+        "--left_cheek_width",
+        str(request.left_cheek_width),
+        "--right_cheek_width",
+        str(request.right_cheek_width),
+        "--audio_padding_length_left",
+        str(request.audio_padding_left),
+        "--audio_padding_length_right",
+        str(request.audio_padding_right),
     ]
     if use_saved:
         cmd.append("--use_saved_coord")
