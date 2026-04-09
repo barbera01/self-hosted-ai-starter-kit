@@ -311,9 +311,7 @@ async def _unload_ollama_models():
             async with session.get(f"{ollama_url}/api/ps") as resp:
                 if resp.status != 200:
                     print(
-                        f"[musetalk] Ollama /api/ps returned {
-                            resp.status
-                        } — skipping unload"
+                        f"[musetalk] Ollama /api/ps returned {resp.status} — skipping unload"
                     )
                     return
                 data = await resp.json()
