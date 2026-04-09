@@ -163,8 +163,7 @@ async def download_video(job_id: str):
         raise HTTPException(status_code=404, detail="Job not found")
     job = jobs[job_id]
     if job.status != "completed":
-        raise HTTPException(
-            status_code=400, detail=f"Job status: {job.status}")
+        raise HTTPException(status_code=400, detail=f"Job status: {job.status}")
     # Video lives at OUTPUT_DIR / avatar_id / job_id / output.mp4
     avatar_id = job.avatar_id or job_id  # fallback for old jobs without avatar_id
     video_path = OUTPUT_DIR / avatar_id / job_id / "output.mp4"
@@ -262,13 +261,11 @@ async def _get_audio(job_id: str, request: VideoRequest) -> Path:
                     await f.write(await resp.read())
 
     elif request.text:
-        av_cfg = AVATAR_VOICE_CONFIGS.get(
-            request.avatar_id, DEFAULT_VOICE_CONFIG)
+        av_cfg = AVATAR_VOICE_CONFIGS.get(request.avatar_id, DEFAULT_VOICE_CONFIG)
         voice = request.voice if request.voice is not None else av_cfg["voice"]
         speed = request.speed if request.speed is not None else av_cfg["speed"]
 
-        print(f"[tts] avatar={request.avatar_id} voice={
-              voice!r} speed={speed}")
+        print(f"[tts] avatar={request.avatar_id} voice={voice!r} speed={speed}")
 
         tts_url = os.getenv("KOKORO_TTS_URL", "http://kokoro-gpu:8880/v1")
         import aiohttp
@@ -341,8 +338,7 @@ async def _unload_ollama_models():
 
     except Exception as e:
         print(
-            f"[musetalk] Could not reach Ollama ({ollama_url}): {
-                e} — continuing anyway"
+            f"[musetalk] Could not reach Ollama ({ollama_url}): {e} — continuing anyway"
         )
 
 
@@ -365,8 +361,7 @@ async def _run_musetalk(job_id: str, audio_file: Path, request: VideoRequest):
 
     # Write per-job YAML config expected by scripts.inference
     cfg_path = INPUT_DIR / f"{job_id}.yaml"
-    cfg = {"task_0": {"video_path": str(
-        avatar_img), "audio_path": str(audio_file)}}
+    cfg = {"task_0": {"video_path": str(avatar_img), "audio_path": str(audio_file)}}
     with open(cfg_path, "w") as f:
         yaml.dump(cfg, f)
 
@@ -442,8 +437,7 @@ async def _run_musetalk(job_id: str, audio_file: Path, request: VideoRequest):
     produced = list(avatar_result_dir.rglob("*.mp4"))
     if not produced:
         raise RuntimeError(
-            f"No .mp4 found under {
-                avatar_result_dir}\nSTDERR: {stderr.decode()}"
+            f"No .mp4 found under {avatar_result_dir}\nSTDERR: {stderr.decode()}"
         )
 
     final_mp4 = avatar_result_dir / "output.mp4"
