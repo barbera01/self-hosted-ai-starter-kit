@@ -31,8 +31,7 @@ app = FastAPI(title="MuseTalk Avatar Video Generator", version="1.5.0")
 # ── Paths ────────────────────────────────────────────────────────────────────
 MODELS_DIR = Path("/app/models")
 AVATARS_DIR = Path("/app/data/avatars")
-# per-job sub-dirs keep coords next to output
-OUTPUT_DIR = Path("/app/output_jobs")
+OUTPUT_DIR = Path("/app/output_jobs")  # per-job sub-dirs keep coords next to output
 INPUT_DIR = Path("/app/input")
 SHARED_DIR = Path("/app/shared")
 
@@ -42,8 +41,8 @@ for d in [MODELS_DIR, AVATARS_DIR, OUTPUT_DIR, INPUT_DIR, SHARED_DIR]:
 # ── Per-avatar Kokoro TTS voice configs ──────────────────────────────────────
 # voice follows Kokoro's weighted-blend syntax: "voice1(w)+voice2(w)+..."
 AVATAR_VOICE_CONFIGS: Dict[str, Dict] = {
-    "rowan": {"voice": "bm_daniel(7)+bm_lewis(3)", "speed": 1.05},
-    "eve": {"voice": "bf_lily(7)+bf_emma(2)+af_bella(1)+af_heart(1)", "speed": 1.05},
+    "rowan": {"voice": "bm_daniel(7)+bm_lewis(3)", "speed": 0.95},
+    "eve": {"voice": "bf_lily(7)+bf_emma(2)+af_bella(1)+af_heart(1)", "speed": 0.95},
     "office-goblin": {"voice": "bf_v0isabella", "speed": 1.4},
 }
 DEFAULT_VOICE_CONFIG: Dict = {"voice": "af_heart", "speed": 1.0}
@@ -87,8 +86,7 @@ class JobStatus(BaseModel):
     job_id: str
     status: str  # pending | processing | completed | failed
     progress: int  # 0-100
-    # stored so download endpoint can find the file
-    avatar_id: Optional[str] = None
+    avatar_id: Optional[str] = None  # stored so download endpoint can find the file
     video_url: Optional[str] = None
     error: Optional[str] = None
 
@@ -404,9 +402,7 @@ async def _run_musetalk(job_id: str, audio_file: Path, request: VideoRequest):
         print(f"[musetalk] Using cached coords: {coords_pkl}")
     else:
         print(
-            f"[musetalk] First run for '{
-                avatar_id
-            }' — computing face coords (will be cached)"
+            f"[musetalk] First run for '{avatar_id}' — computing face coords (will be cached)"
         )
 
     env = os.environ.copy()
