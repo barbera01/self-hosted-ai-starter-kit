@@ -41,7 +41,7 @@ for d in [MODELS_DIR, AVATARS_DIR, OUTPUT_DIR, INPUT_DIR, SHARED_DIR]:
 # ── Per-avatar Kokoro TTS voice configs ──────────────────────────────────────
 # voice follows Kokoro's weighted-blend syntax: "voice1(w)+voice2(w)+..."
 AVATAR_VOICE_CONFIGS: Dict[str, Dict] = {
-    "rowan": {"voice": "bm_daniel(7)+bm_lewis(3)", "speed": 0.95},
+    "rowan": {"voice": "bm_daniel(7)+bm_lewis(3)", "speed": 1.05},
     "eve": {"voice": "bf_lily(7)+bf_emma(2)+af_bella(1)+af_heart(1)", "speed": 1.05},
     "office-goblin": {"voice": "bf_v0isabella", "speed": 1.4},
 }
