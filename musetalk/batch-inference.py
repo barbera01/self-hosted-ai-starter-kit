@@ -43,6 +43,7 @@ for d in [MODELS_DIR, AVATARS_DIR, OUTPUT_DIR, INPUT_DIR, SHARED_DIR]:
 AVATAR_VOICE_CONFIGS: Dict[str, Dict] = {
     "rowan": {"voice": "bm_daniel(7)+bm_lewis(3)", "speed": 0.95},
     "eve": {"voice": "bf_lily(7)+bf_emma(2)+af_bella(1)+af_heart(1)", "speed": 0.95},
+    "office-goblin": {"voice": "bf_isabella", "speed": 1.4},
 }
 DEFAULT_VOICE_CONFIG: Dict = {"voice": "af_heart", "speed": 1.0}
 
@@ -98,6 +99,28 @@ async def list_models():
         "engine": "musetalk-v1.5",
         "models_ready": _models_ready(),
         "avatars": _list_avatars(),
+    }
+
+
+# ── Jobs ──────────────────────────────────────────────────────────────────────
+
+
+@app.get("/jobs")
+async def list_jobs():
+    """List all jobs with their current status."""
+    return {
+        "total": len(jobs),
+        "jobs": [
+            {
+                "job_id": job.job_id,
+                "status": job.status,
+                "progress": job.progress,
+                "avatar_id": job.avatar_id,
+                "video_url": job.video_url,
+                "error": job.error,
+            }
+            for job in jobs.values()
+        ],
     }
 
 
