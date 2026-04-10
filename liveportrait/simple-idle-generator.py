@@ -507,11 +507,11 @@ def generate():
             driving_video,
             "-o",
             str(output_path),
-            "--flag_relative",
-            "--flag_do_crop",
-            "--flag_pasteback",
-            "--flag_stitching",
-            "--driving_multiplier",
+            "--flag-relative-motion",
+            "--flag-do-crop",
+            "--flag-pasteback",
+            "--flag-stitching",
+            "--driving-multiplier",
             "0.8",
         ]
 
