@@ -40,11 +40,23 @@ if command -v huggingface-cli &> /dev/null; then
     
     # Download from HuggingFace with progress
     echo "Starting download... (this may take several minutes)"
-    huggingface-cli download KlingTeam/LivePortrait \
-        --local-dir "$MODELS_DIR" \
-        --exclude "*.git*" "README.md" "docs" 2>&1 | while read line; do
-        echo "$line"
-    done
+    echo "Downloading to: $MODELS_DIR"
+    echo ""
+    
+    # Use hf download (newer command) with better progress
+    if command -v hf &> /dev/null; then
+        hf download KlingTeam/LivePortrait \
+            --local-dir "$MODELS_DIR" \
+            --exclude "*.git*" "README.md" "docs"
+    else
+        # Fallback to huggingface-cli
+        huggingface-cli download KlingTeam/LivePortrait \
+            --local-dir "$MODELS_DIR" \
+            --exclude "*.git*" "README.md" "docs"
+    fi
+    
+    echo ""
+    echo "Download command completed, checking files..."
     
     echo "✅ Models downloaded successfully via huggingface-cli"
 else
