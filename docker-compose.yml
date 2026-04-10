@@ -619,7 +619,7 @@ services:
     ports:
       - "8012:8012"
     volumes:
-      - liveportrait_models:/app/pretrained_weights
+      - ./liveportrait_models:/app/pretrained_weights
       - liveportrait_source:/app/data/source
       - liveportrait_driving:/app/data/driving
       - liveportrait_output:/app/output
