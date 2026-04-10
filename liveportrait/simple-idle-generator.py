@@ -7,6 +7,7 @@ Upload an image, get an idle animation video - that's it!
 import os
 import sys
 import subprocess
+import traceback
 from pathlib import Path
 from flask import Flask, request, send_file, render_template_string, jsonify
 import tempfile
@@ -22,10 +23,41 @@ app = Flask(__name__)
 OUTPUT_DIR = Path("/app/output")
 SHARED_DIR = Path("/app/shared")
 DRIVING_DIR = Path("/app/data/driving")
+ASSETS_DIR = Path("/app/assets/examples/driving")
 
 OUTPUT_DIR.mkdir(exist_ok=True)
 SHARED_DIR.mkdir(exist_ok=True)
 DRIVING_DIR.mkdir(exist_ok=True)
+
+
+# Check for available driving videos
+def get_available_motions():
+    """Check which motion templates are available"""
+    motions = {}
+
+    # Check standard locations
+    for motion_name in ["idle_combined", "blink", "breathing", "head_nod"]:
+        # Check in driving dir
+        if (DRIVING_DIR / f"{motion_name}.mp4").exists():
+            motions[motion_name] = str(DRIVING_DIR / f"{motion_name}.mp4")
+        # Check in assets dir
+        elif (ASSETS_DIR / f"{motion_name}.mp4").exists():
+            motions[motion_name] = str(ASSETS_DIR / f"{motion_name}.mp4")
+
+    # If no standard names, use any available videos from assets
+    if not motions and ASSETS_DIR.exists():
+        for video in ASSETS_DIR.glob("*.mp4"):
+            name = video.stem
+            motions[name] = str(video)
+
+    # If still nothing, check driving dir for any videos
+    if not motions:
+        for video in DRIVING_DIR.glob("*.mp4"):
+            name = video.stem
+            motions[name] = str(video)
+
+    return motions
+
 
 # Simple HTML template
 HTML_TEMPLATE = """
@@ -142,6 +174,11 @@ HTML_TEMPLATE = """
             border: 1px solid #f44336;
             color: #c62828;
         }
+        .status.warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
+        }
         .progress {
             width: 100%;
             height: 30px;
@@ -175,6 +212,13 @@ HTML_TEMPLATE = """
             border-radius: 5px;
             margin: 20px 0;
         }
+        .error-box {
+            background: #ffebee;
+            border: 1px solid #f44336;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
     </style>
 </head>
 <body>
@@ -184,10 +228,17 @@ HTML_TEMPLATE = """
             Upload an image → Select motion → Get loopable idle video
         </p>
         
+        {% if not has_motions %}
+        <div class="error-box">
+            <strong>⚠️ No driving videos found!</strong><br>
+            Please set up driving videos first. See the instructions below.
+        </div>
+        {% else %}
         <div class="info-box">
             <strong>💡 Perfect for MuseTalk!</strong><br>
             Create natural idle animations (blinking, breathing, head nods) to use as base videos for MuseTalk lip-sync.
         </div>
+        {% endif %}
         
         <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
             <p style="font-size: 48px; margin: 0;">📸</p>
@@ -198,41 +249,33 @@ HTML_TEMPLATE = """
         
         <div class="preview" id="preview"></div>
         
+        {% if has_motions %}
         <div class="motion-selector">
             <h3>Select Idle Motion:</h3>
-            <label class="motion-option selected">
-                <input type="radio" name="motion" value="idle_combined" checked>
+            {% for motion, path in motions.items() %}
+            <label class="motion-option {% if loop.first %}selected{% endif %}">
+                <input type="radio" name="motion" value="{{ motion }}" {% if loop.first %}checked{% endif %}>
                 <div>
-                    <strong>🎬 Combined Idle</strong><br>
-                    <small>Blink + breathing + subtle movement (recommended)</small>
+                    <strong>{{ motion.replace('_', ' ').title() }}</strong>
                 </div>
             </label>
-            <label class="motion-option">
-                <input type="radio" name="motion" value="blink">
-                <div>
-                    <strong>👁️ Blink Only</strong><br>
-                    <small>Natural eye blinking</small>
-                </div>
-            </label>
-            <label class="motion-option">
-                <input type="radio" name="motion" value="breathing">
-                <div>
-                    <strong>💨 Breathing</strong><br>
-                    <small>Subtle chest/shoulder movement</small>
-                </div>
-            </label>
-            <label class="motion-option">
-                <input type="radio" name="motion" value="head_nod">
-                <div>
-                    <strong>👤 Head Nod</strong><br>
-                    <small>Gentle affirmative nod</small>
-                </div>
-            </label>
+            {% endfor %}
         </div>
         
         <button id="generateBtn" onclick="generateIdle()" disabled>
             Generate Idle Animation
         </button>
+        {% else %}
+        <div class="info-box">
+            <h3>📋 Setup Instructions:</h3>
+            <p>To use this service, you need driving videos (motion templates).</p>
+            <ol>
+                <li>Download example videos from <a href="https://github.com/KlingAIResearch/LivePortrait/tree/main/assets/examples/driving" target="_blank">LivePortrait GitHub</a></li>
+                <li>Place them in the shared directory or rebuild the container</li>
+                <li>Or run: <code>docker compose exec liveportrait /app/download-driving-videos.sh</code></li>
+            </ol>
+        </div>
+        {% endif %}
         
         <div class="progress" id="progress">
             <div class="progress-bar" id="progressBar">0%</div>
@@ -245,6 +288,7 @@ HTML_TEMPLATE = """
     
     <script>
         let selectedFile = null;
+        const hasMotions = {{ 'true' if has_motions else 'false' }};
         
         // File input handling
         document.getElementById('fileInput').addEventListener('change', function(e) {
@@ -292,13 +336,22 @@ HTML_TEMPLATE = """
             reader.readAsDataURL(file);
             
             // Enable generate button
-            document.getElementById('generateBtn').disabled = false;
-            showStatus('Image loaded! Select a motion type and click Generate.', 'info');
+            if (hasMotions) {
+                document.getElementById('generateBtn').disabled = false;
+                showStatus('Image loaded! Select a motion type and click Generate.', 'info');
+            } else {
+                showStatus('Image loaded, but no driving videos available. Please set up driving videos first.', 'warning');
+            }
         }
         
         async function generateIdle() {
             if (!selectedFile) {
                 showStatus('Please select an image first', 'error');
+                return;
+            }
+            
+            if (!hasMotions) {
+                showStatus('No driving videos available. Please set up driving videos first.', 'error');
                 return;
             }
             
@@ -331,7 +384,8 @@ HTML_TEMPLATE = """
                 clearInterval(progressInterval);
                 
                 if (!response.ok) {
-                    throw new Error('Generation failed');
+                    const error = await response.json();
+                    throw new Error(error.error || 'Generation failed');
                 }
                 
                 const blob = await response.blob();
@@ -382,7 +436,23 @@ HTML_TEMPLATE = """
 @app.route("/")
 def index():
     """Serve the simple web UI"""
-    return render_template_string(HTML_TEMPLATE)
+    motions = get_available_motions()
+    return render_template_string(
+        HTML_TEMPLATE, has_motions=len(motions) > 0, motions=motions
+    )
+
+
+@app.route("/health")
+def health():
+    """Health check"""
+    motions = get_available_motions()
+    return jsonify(
+        {
+            "status": "healthy",
+            "motions_available": len(motions),
+            "motions": list(motions.keys()),
+        }
+    )
 
 
 @app.route("/generate", methods=["POST"])
@@ -396,23 +466,41 @@ def generate():
         image = request.files["image"]
         motion_type = request.form.get("motion_type", "idle_combined")
 
+        # Check if motion template exists
+        motions = get_available_motions()
+        if not motions:
+            return jsonify(
+                {
+                    "error": "No driving videos available. Please set up driving videos first."
+                }
+            ), 500
+
+        if motion_type not in motions:
+            # Use first available motion as fallback
+            motion_type = list(motions.keys())[0]
+            print(f"⚠️  Requested motion not found, using: {motion_type}")
+
+        driving_video = motions[motion_type]
+        print(f"Using driving video: {driving_video}")
+
         # Save uploaded image
         job_id = str(uuid.uuid4())[:8]
         image_path = OUTPUT_DIR / f"source_{job_id}.jpg"
         image.save(image_path)
+        print(f"Saved source image: {image_path}")
 
-        # For now, use a simple approach - just call LivePortrait inference
-        # In production, you'd have actual driving videos
+        # Output path
         output_path = OUTPUT_DIR / f"idle_{job_id}.mp4"
 
-        # Import LivePortrait inference
+        # Import and run LivePortrait inference
+        print("Loading LivePortrait inference...")
         from inference import main as liveportrait_inference
 
         # Create args object
         class Args:
             def __init__(self):
                 self.source = str(image_path)
-                self.driving = f"/app/data/driving/{motion_type}.mp4"
+                self.driving = driving_video
                 self.output = str(output_path)
                 self.flag_relative = True
                 self.flag_do_crop = True
@@ -420,11 +508,28 @@ def generate():
                 self.flag_stitching = True
                 self.driving_multiplier = 0.8
                 self.flag_crop_driving_video = False
+                self.device_id = 0
+                self.flag_lip_zero = False
+                self.flag_eye_retargeting = False
+                self.flag_lip_retargeting = False
+                self.flag_stitching = True
+                self.flag_relative = True
 
         args = Args()
 
+        print(f"Running LivePortrait inference...")
+        print(f"  Source: {args.source}")
+        print(f"  Driving: {args.driving}")
+        print(f"  Output: {args.output}")
+
         # Run inference
         liveportrait_inference(args)
+
+        # Check if output was created
+        if not output_path.exists():
+            raise Exception("Output video was not created")
+
+        print(f"✅ Generated: {output_path}")
 
         # Return the video file
         return send_file(
@@ -435,17 +540,27 @@ def generate():
         )
 
     except Exception as e:
+        print(f"❌ Error generating animation: {e}")
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
-
-
-@app.route("/health")
-def health():
-    """Health check"""
-    return jsonify({"status": "healthy"})
 
 
 if __name__ == "__main__":
     print("🎭 Starting Simple Idle Animation Generator...")
+
+    # Check for driving videos
+    motions = get_available_motions()
+    if motions:
+        print(f"✅ Found {len(motions)} motion templates:")
+        for name, path in motions.items():
+            print(f"   - {name}: {path}")
+    else:
+        print("⚠️  Warning: No driving videos found!")
+        print("   The web interface will show setup instructions.")
+        print("   Run: /app/download-driving-videos.sh to set up driving videos")
+
+    print("")
     print("📍 Open http://localhost:8012 in your browser")
     print("💡 Upload an image, select motion, get idle video!")
+
     app.run(host="0.0.0.0", port=8012, debug=False)

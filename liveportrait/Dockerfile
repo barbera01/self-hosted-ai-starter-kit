@@ -52,15 +52,17 @@ RUN mkdir -p /app/pretrained_weights \
     /app/input \
     /app/shared
 
-# Copy our simple web UI
+# Copy our simple web UI and scripts
 COPY simple-idle-generator.py /app/
 COPY download-models.sh /app/
+COPY download-driving-videos.sh /app/
+COPY startup.sh /app/
 
 # Make scripts executable
-RUN chmod +x /app/download-models.sh
+RUN chmod +x /app/download-models.sh /app/download-driving-videos.sh /app/startup.sh
 
 # Expose API port
 EXPOSE 8012
 
-# Default command - run our simple web UI
-CMD ["python", "/app/simple-idle-generator.py"]
+# Default command - run startup script
+CMD ["/app/startup.sh"]
