@@ -489,14 +489,13 @@ def generate():
         image.save(image_path)
         print(f"Saved source image: {image_path}")
 
-        # Output path
-        output_path = OUTPUT_DIR / f"idle_{job_id}.mp4"
+        # LivePortrait -o is an OUTPUT DIRECTORY, not a file path.
+        # It will create the video inside that directory with its own naming.
+        output_dir = OUTPUT_DIR / f"job_{job_id}"
+        output_dir.mkdir(parents=True, exist_ok=True)
 
         # Import and run LivePortrait inference
         print("Loading LivePortrait inference...")
-
-        # Use subprocess to call inference.py directly
-        import subprocess
 
         cmd = [
             "python",
@@ -506,7 +505,7 @@ def generate():
             "-d",
             driving_video,
             "-o",
-            str(output_path),
+            str(output_dir),
             "--flag-relative-motion",
             "--flag-do-crop",
             "--flag-pasteback",
@@ -518,7 +517,7 @@ def generate():
         print(f"Running LivePortrait inference...")
         print(f"  Source: {image_path}")
         print(f"  Driving: {driving_video}")
-        print(f"  Output: {output_path}")
+        print(f"  Output dir: {output_dir}")
         print(f"  Command: {' '.join(cmd)}")
 
         # Run inference
@@ -529,10 +528,14 @@ def generate():
             print(f"STDERR: {result.stderr}")
             raise Exception(f"LivePortrait inference failed: {result.stderr}")
 
-        # Check if output was created
-        if not output_path.exists():
-            raise Exception("Output video was not created")
+        # Find the generated mp4 — LivePortrait names it automatically
+        mp4_files = list(output_dir.glob("*.mp4"))
+        if not mp4_files:
+            raise Exception(
+                f"No output video found in {output_dir}. stdout: {result.stdout}"
+            )
 
+        output_path = mp4_files[0]
         print(f"✅ Generated: {output_path}")
 
         # Return the video file
