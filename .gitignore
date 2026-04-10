@@ -78,3 +78,6 @@ comfyui_output/*
 comfyui_custom_nodes/*/checkpoints/*.pth
 comfyui_custom_nodes/*/checkpoints/*.pt
 comfyui_custom_nodes/*/checkpoints/*.safetensors
+
+# LivePortrait models (bind-mounted, downloaded on host)
+liveportrait_models/

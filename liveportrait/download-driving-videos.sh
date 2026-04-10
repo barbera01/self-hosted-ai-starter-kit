@@ -30,28 +30,35 @@ if [ -d "$ASSETS_DIR" ]; then
     cd "$DRIVING_DIR"
     
     # Map LivePortrait examples to our standard names
-    # d0.mp4 - general expression
-    # d5.mp4 - subtle expression
-    # d6.mp4 - another expression
-    
+    # d0.mp4  - long general expression (good for idle_combined)
+    # d6.mp4  - another general expression (good for breathing / head_nod)
+    # d18.mp4 - very short clip (good for blink - minimal motion)
+    # d11.mp4 - short clip (also good for subtle motion)
+
     if [ -f "d0.mp4" ]; then
         ln -sf d0.mp4 idle_combined.mp4
-        echo "✅ Created idle_combined.mp4"
+        echo "✅ Created idle_combined.mp4 -> d0.mp4"
     fi
-    
-    if [ -f "d5.mp4" ]; then
-        ln -sf d5.mp4 blink.mp4
-        echo "✅ Created blink.mp4"
+
+    if [ -f "d18.mp4" ]; then
+        ln -sf d18.mp4 blink.mp4
+        echo "✅ Created blink.mp4 -> d18.mp4"
+    elif [ -f "d11.mp4" ]; then
+        ln -sf d11.mp4 blink.mp4
+        echo "✅ Created blink.mp4 -> d11.mp4"
     fi
-    
+
     if [ -f "d6.mp4" ]; then
         ln -sf d6.mp4 breathing.mp4
-        echo "✅ Created breathing.mp4"
+        echo "✅ Created breathing.mp4 -> d6.mp4"
     fi
-    
-    if [ -f "d0.mp4" ]; then
+
+    if [ -f "d3.mp4" ]; then
+        ln -sf d3.mp4 head_nod.mp4
+        echo "✅ Created head_nod.mp4 -> d3.mp4"
+    elif [ -f "d0.mp4" ]; then
         ln -sf d0.mp4 head_nod.mp4
-        echo "✅ Created head_nod.mp4"
+        echo "✅ Created head_nod.mp4 -> d0.mp4"
     fi
     
     # Mark as downloaded
