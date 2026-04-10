@@ -494,36 +494,40 @@ def generate():
 
         # Import and run LivePortrait inference
         print("Loading LivePortrait inference...")
-        from inference import main as liveportrait_inference
 
-        # Create args object
-        class Args:
-            def __init__(self):
-                self.source = str(image_path)
-                self.driving = driving_video
-                self.output = str(output_path)
-                self.flag_relative = True
-                self.flag_do_crop = True
-                self.flag_pasteback = True
-                self.flag_stitching = True
-                self.driving_multiplier = 0.8
-                self.flag_crop_driving_video = False
-                self.device_id = 0
-                self.flag_lip_zero = False
-                self.flag_eye_retargeting = False
-                self.flag_lip_retargeting = False
-                self.flag_stitching = True
-                self.flag_relative = True
+        # Use subprocess to call inference.py directly
+        import subprocess
 
-        args = Args()
+        cmd = [
+            "python",
+            "/app/inference.py",
+            "-s",
+            str(image_path),
+            "-d",
+            driving_video,
+            "-o",
+            str(output_path),
+            "--flag_relative",
+            "--flag_do_crop",
+            "--flag_pasteback",
+            "--flag_stitching",
+            "--driving_multiplier",
+            "0.8",
+        ]
 
         print(f"Running LivePortrait inference...")
-        print(f"  Source: {args.source}")
-        print(f"  Driving: {args.driving}")
-        print(f"  Output: {args.output}")
+        print(f"  Source: {image_path}")
+        print(f"  Driving: {driving_video}")
+        print(f"  Output: {output_path}")
+        print(f"  Command: {' '.join(cmd)}")
 
         # Run inference
-        liveportrait_inference(args)
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        if result.returncode != 0:
+            print(f"STDOUT: {result.stdout}")
+            print(f"STDERR: {result.stderr}")
+            raise Exception(f"LivePortrait inference failed: {result.stderr}")
 
         # Check if output was created
         if not output_path.exists():
