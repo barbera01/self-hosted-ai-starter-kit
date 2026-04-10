@@ -528,8 +528,15 @@ def generate():
             print(f"STDERR: {result.stderr}")
             raise Exception(f"LivePortrait inference failed: {result.stderr}")
 
-        # Find the generated mp4 — LivePortrait names it automatically
-        mp4_files = list(output_dir.glob("*.mp4"))
+        # Find the final result mp4 — LivePortrait outputs two files:
+        #   <source>--<driving>.mp4          ← the final pasted-back result (what we want)
+        #   <source>--<driving>_concat.mp4   ← the 3-panel side-by-side comparison (skip this)
+        mp4_files = [
+            f for f in output_dir.glob("*.mp4") if not f.name.endswith("_concat.mp4")
+        ]
+        if not mp4_files:
+            # fallback: any mp4 if somehow concat is the only one
+            mp4_files = list(output_dir.glob("*.mp4"))
         if not mp4_files:
             raise Exception(
                 f"No output video found in {output_dir}. stdout: {result.stdout}"
