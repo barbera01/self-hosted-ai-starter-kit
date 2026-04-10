@@ -39,6 +39,12 @@ volumes:
   musetalk_avatars:
   musetalk_output:
   musetalk_input:
+  # LivePortrait volumes
+  liveportrait_models:
+  liveportrait_source:
+  liveportrait_driving:
+  liveportrait_output:
+  liveportrait_input:
 
 networks:
   aistack:
@@ -599,4 +605,46 @@ services:
       - "traefik.http.routers.musetalk.entrypoints=websecure"
       - "traefik.http.routers.musetalk.tls=true"
       - "traefik.http.services.musetalk.loadbalancer.server.port=8011"
+    profiles: ["avatar"]
+
+  # ---- LivePortrait Portrait Animation ----
+  liveportrait:
+    build:
+      context: ./liveportrait
+      dockerfile: Dockerfile
+    container_name: liveportrait
+    networks: ["aistack"]
+    restart: unless-stopped
+    logging: *default-logging
+    ports:
+      - "8012:8012"
+    volumes:
+      - liveportrait_models:/app/pretrained_weights
+      - liveportrait_source:/app/data/source
+      - liveportrait_driving:/app/data/driving
+      - liveportrait_output:/app/output
+      - liveportrait_input:/app/input
+      - ./shared:/app/shared
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=0
+      - CUDA_VISIBLE_DEVICES=0
+      - HF_TOKEN=${HUGGINGFACE_TOKEN:-}
+      - PYTHONUNBUFFERED=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+        limits:
+          memory: 8G
+    shm_size: 2gb
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=aistack"
+      - "traefik.http.routers.liveportrait.rule=Host(`${LIVEPORTRAIT_DOMAIN}`)"
+      - "traefik.http.routers.liveportrait.entrypoints=websecure"
+      - "traefik.http.routers.liveportrait.tls=true"
+      - "traefik.http.services.liveportrait.loadbalancer.server.port=8012"
     profiles: ["avatar"]
