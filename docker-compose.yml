@@ -234,8 +234,8 @@ services:
       - ./kokoro/openai_mappings.json:/app/api/src/core/openai_mappings.json:ro
     environment:
       - MODEL_CACHE_DIR=/app/models
-      - WORKERS=2
-      - MAX_CONCURRENT_REQUESTS=4
+      - WORKERS=1
+      - MAX_CONCURRENT_REQUESTS=2
       - USE_GPU=true
       - NVIDIA_VISIBLE_DEVICES=0
       - CUDA_VISIBLE_DEVICES=0
